@@ -1,5 +1,6 @@
 import './App.css';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Sales from './pages/Sales';
@@ -23,10 +24,12 @@ function App() {
       <main style={{ padding: 16 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/sales" element={<Sales />} />
-          <Route path="/purchases" element={<Purchases />} />
-          <Route path="/hutang" element={<Hutang />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/products" element={<Products />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/purchases" element={<Purchases />} />
+            <Route path="/hutang" element={<Hutang />} />
+          </Route>
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
