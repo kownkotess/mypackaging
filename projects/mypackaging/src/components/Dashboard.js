@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
 
@@ -29,12 +30,12 @@ const Dashboard = () => {
 
       <main className="dashboard-main">
         <div className="dashboard-grid">
-          <div className="dashboard-card">
+          <Link to="/products" className="dashboard-card">
             <div className="card-icon">📦</div>
             <h3>Inventory</h3>
             <p>Manage your products and stock levels</p>
             <button className="card-btn">View Products</button>
-          </div>
+          </Link>
 
           <div className="dashboard-card">
             <div className="card-icon">🛒</div>

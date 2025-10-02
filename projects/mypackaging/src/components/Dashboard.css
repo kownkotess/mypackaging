@@ -71,6 +71,9 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-align: center;
   border: 1px solid #e9ecef;
+  text-decoration: none;
+  color: inherit;
+  display: block;
 }
 
 .dashboard-card:hover {
