@@ -1,0 +1,246 @@
+/* Role-Based Access Control Styles */
+
+.access-denied {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 20px;
+  background: #f8f9fa;
+}
+
+.access-denied-content {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.access-denied-content h2 {
+  color: #dc3545;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.access-denied-content p {
+  color: #666;
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+
+.access-denied-content .btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.access-denied-content .btn-secondary {
+  background: var(--secondary-color);
+  color: #333;
+}
+
+.access-denied-content .btn-secondary:hover {
+  background: var(--secondary-light);
+  transform: translateY(-1px);
+}
+
+/* Role and Permission Messages */
+.role-message,
+.permission-message,
+.access-message,
+.role-gate-message {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 10px 0;
+  color: #856404;
+}
+
+.role-message p,
+.permission-message p,
+.access-message p,
+.role-gate-message p {
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+/* Role Badge Styles */
+.role-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 10px;
+}
+
+.role-badge.admin {
+  background: #dc3545;
+  color: white;
+}
+
+.role-badge.manager {
+  background: var(--secondary-color);
+  color: #333;
+}
+
+.role-badge.staff {
+  background: #6c757d;
+  color: white;
+}
+
+/* Permission Indicator */
+.permission-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.permission-indicator.allowed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.permission-indicator.denied {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Role-Specific Styling */
+.admin-only {
+  border-left: 4px solid #dc3545;
+  padding-left: 15px;
+}
+
+.manager-only {
+  border-left: 4px solid var(--secondary-color);
+  padding-left: 15px;
+}
+
+.staff-only {
+  border-left: 4px solid #6c757d;
+  padding-left: 15px;
+}
+
+/* Restricted Action Styling */
+.action-restricted {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.action-restricted .btn {
+  background: #6c757d !important;
+  cursor: not-allowed;
+}
+
+/* Role Info Panel */
+.role-info-panel {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.role-info-panel .role-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.role-info-panel .role-description {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Permission Matrix Styles */
+.permission-matrix {
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+.permission-header {
+  background: var(--primary-color);
+  color: white;
+  font-weight: 600;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  align-items: center;
+}
+
+.permission-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  align-items: center;
+}
+
+.permission-row:last-child {
+  border-bottom: none;
+}
+
+.permission-row:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.permission-row .permission-cell {
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+.permission-row .permission-cell.allowed {
+  color: #28a745;
+}
+
+.permission-row .permission-cell.denied {
+  color: #dc3545;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .access-denied-content {
+    padding: 30px 20px;
+  }
+  
+  .access-denied-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .permission-matrix {
+    overflow-x: auto;
+  }
+  
+  .permission-header,
+  .permission-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .role-info-panel {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+}

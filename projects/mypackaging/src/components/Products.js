@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { subscribeProducts, deleteProduct } from '../lib/firestore';
+import { RequirePermission } from './RoleComponents';
 import ProductForm from './ProductForm';
 import './Products.css';
 
@@ -86,9 +87,11 @@ const Products = () => {
       
       <div className="products-header">
         <h1>📦 Product Management</h1>
-        <button onClick={handleAddProduct} className="btn primary">
-          + Add New Product
-        </button>
+        <RequirePermission module="products" action="create">
+          <button onClick={handleAddProduct} className="btn primary">
+            + Add New Product
+          </button>
+        </RequirePermission>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -174,18 +177,22 @@ const Products = () => {
                   </div>
 
                   <div className="product-actions">
-                    <button 
-                      onClick={() => handleEditProduct(product)}
-                      className="btn secondary small"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteProduct(product.id, product.name)}
-                      className="btn danger small"
-                    >
-                      Delete
-                    </button>
+                    <RequirePermission module="products" action="edit">
+                      <button 
+                        onClick={() => handleEditProduct(product)}
+                        className="btn secondary small"
+                      >
+                        Edit
+                      </button>
+                    </RequirePermission>
+                    <RequirePermission module="products" action="delete">
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id, product.name)}
+                        className="btn danger small"
+                      >
+                        Delete
+                      </button>
+                    </RequirePermission>
                   </div>
                 </div>
               );

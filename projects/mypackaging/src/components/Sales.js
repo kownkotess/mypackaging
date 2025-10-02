@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getProducts, createSale } from '../lib/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextWrapper';
+import { RequirePermission } from './RoleComponents';
 import './Sales.css';
 
 const Sales = () => {
@@ -407,13 +408,15 @@ const Sales = () => {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn primary large"
-                >
-                  {submitting ? 'Processing...' : 'Complete Sale'}
-                </button>
+                <RequirePermission module="sales" action="create">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn primary large"
+                  >
+                    {submitting ? 'Processing...' : 'Complete Sale'}
+                  </button>
+                </RequirePermission>
               </form>
             </>
           )}

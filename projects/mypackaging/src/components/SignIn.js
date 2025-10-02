@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
+import logo from '../assets/logo.png';
 import './SignIn.css';
 
 const SignIn = () => {
@@ -49,8 +50,13 @@ const SignIn = () => {
     <div className="signin-container">
       <div className="signin-card">
         <div className="signin-header">
-          <h1>MyPackaging Shop</h1>
-          <p>Management System</p>
+          <div className="logo-title-container">
+            <img src={logo} alt="MyPackaging Logo" className="logo" />
+            <div className="title-container">
+              <span className="main-title">MYPACKAGING</span>
+              <span className="sub-title">bybellestore</span>
+            </div>
+          </div>
         </div>
         
         <form onSubmit={handleSubmit} className="signin-form">

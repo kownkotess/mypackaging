@@ -9,14 +9,14 @@
 }
 
 .back-link {
-  color: #667eea;
+  color: #004D24;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s ease;
 }
 
 .back-link:hover {
-  color: #764ba2;
+  color: #006B32;
 }
 
 .sales-header {
@@ -83,7 +83,7 @@
 
 .search-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #004D24;
 }
 
 .products-list {
@@ -145,7 +145,7 @@
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
 }
 
 .btn.small {
@@ -250,7 +250,7 @@
 
 .qty-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #004D24;
 }
 
 .item-total {
@@ -287,7 +287,7 @@
   font-size: 1.2rem;
   font-weight: bold;
   color: #333;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 2px solid #004D24;
   padding: 12px 0;
 }
 
@@ -333,7 +333,7 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #004D24;
 }
 
 .text-warning {

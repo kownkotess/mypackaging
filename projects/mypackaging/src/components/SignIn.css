@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
   padding: 20px;
 }
 
@@ -17,22 +17,44 @@
 }
 
 .signin-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
   color: white;
   text-align: center;
   padding: 30px 20px;
 }
 
-.signin-header h1 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: bold;
+.logo-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
 }
 
-.signin-header p {
+.logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+
+.title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.main-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.sub-title {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #FBB040;
   margin: 5px 0 0 0;
-  opacity: 0.9;
-  font-size: 1rem;
 }
 
 .signin-form {
@@ -69,12 +91,12 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #004D24;
 }
 
 .signin-btn {
   width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
   color: white;
   border: none;
   padding: 12px;
@@ -105,14 +127,14 @@
 .link-btn {
   background: none;
   border: none;
-  color: #667eea;
+  color: #004D24;
   cursor: pointer;
   font-weight: 600;
   text-decoration: underline;
 }
 
 .link-btn:hover {
-  color: #764ba2;
+  color: #006B32;
 }
 
 .error-message {

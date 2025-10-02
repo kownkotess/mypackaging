@@ -1,3 +1,53 @@
+:root {
+  --primary-color: #004D24;
+  --primary-light: #006B32;
+  --secondary-color: #FBB040;
+  --secondary-light: #FFC967;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #17a2b8;
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
+}
+
 .App {
   min-height: 100vh;
+}
+
+/* Global theme utility classes */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  border: none;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+}
+
+.btn-secondary {
+  background: var(--secondary-color);
+  border: none;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: var(--secondary-light);
+}
+
+.text-primary {
+  color: var(--primary-color) !important;
+}
+
+.text-secondary {
+  color: var(--secondary-color) !important;
+}
+
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+.bg-secondary {
+  background-color: var(--secondary-color) !important;
 }

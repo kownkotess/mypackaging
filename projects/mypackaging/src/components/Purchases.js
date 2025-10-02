@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { subscribeProducts, subscribePurchases, createPurchase } from '../lib/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContextWrapper';
+import { RequirePermission } from './RoleComponents';
 import '../styles/Purchases.css';
 
 function Purchases() {
@@ -213,13 +214,15 @@ function Purchases() {
 
       <div className="purchases-header">
         <h1>Purchase Management</h1>
-        <button 
-          className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
-          disabled={loading}
-        >
-          {showForm ? 'Cancel' : '+ New Purchase'}
-        </button>
+        <RequirePermission module="purchases" action="create">
+          <button 
+            className="btn-primary"
+            onClick={() => setShowForm(!showForm)}
+            disabled={loading}
+          >
+            {showForm ? 'Cancel' : '+ New Purchase'}
+          </button>
+        </RequirePermission>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -401,13 +404,15 @@ function Purchases() {
               <button type="button" onClick={resetForm} className="btn-secondary">
                 Cancel
               </button>
-              <button 
-                type="submit" 
-                className="btn-primary"
-                disabled={loading || selectedProducts.length === 0}
-              >
-                {loading ? 'Creating Purchase...' : 'Create Purchase'}
-              </button>
+              <RequirePermission module="purchases" action="create">
+                <button 
+                  type="submit" 
+                  className="btn-primary"
+                  disabled={loading || selectedProducts.length === 0}
+                >
+                  {loading ? 'Creating Purchase...' : 'Create Purchase'}
+                </button>
+              </RequirePermission>
             </div>
           </form>
         </div>

@@ -28,7 +28,7 @@
   align-items: center;
   padding: 20px 25px;
   border-bottom: 1px solid #e9ecef;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
   color: white;
   border-radius: 12px 12px 0 0;
 }
@@ -97,7 +97,7 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #004D24;
 }
 
 .form-group small {
@@ -154,7 +154,7 @@
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
 }
 
 .btn.secondary {
