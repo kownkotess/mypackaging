@@ -109,6 +109,24 @@ const Sales = () => {
     return Math.max(0, total - paid);
   };
 
+  // Effect to automatically set payment method to hutang when needed
+  React.useEffect(() => {
+    const subtotal = selectedProducts.reduce((sum, product) => {
+      const qty = Number(product.qty) || 0;
+      const price = Number(product.price) || 0;
+      return sum + (qty * price);
+    }, 0);
+    
+    const deductionAmount = Number(deduction) || 0;
+    const total = subtotal - deductionAmount;
+    const paid = Number(paidAmount) || 0;
+    const remaining = Math.max(0, total - paid);
+    
+    if (remaining > 0 && paymentMethod !== 'hutang') {
+      setPaymentMethod('hutang');
+    }
+  }, [paidAmount, selectedProducts, deduction, paymentMethod]);
+
   const handleSubmitSale = async (e) => {
     e.preventDefault();
     
@@ -124,6 +142,12 @@ const Sales = () => {
     // Customer name validation for credit sales
     if (remaining > 0 && !customerName.trim()) {
       setError('Customer name is required for credit sales (when paid amount is less than total).');
+      return;
+    }
+
+    // Ensure payment method is hutang for credit sales
+    if (remaining > 0 && paymentMethod !== 'hutang') {
+      setError('Payment method must be "Hutang (Credit)" when paid amount is less than total.');
       return;
     }
 

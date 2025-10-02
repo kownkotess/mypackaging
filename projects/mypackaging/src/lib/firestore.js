@@ -251,6 +251,23 @@ export const createPurchase = async (purchaseData) => {
   }
 };
 
+// Subscribe to purchases with real-time updates
+export const subscribePurchases = (callback) => {
+  const purchasesRef = collection(db, 'purchases');
+  const q = query(purchasesRef, orderBy('createdAt', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const purchases = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(purchases);
+  }, (error) => {
+    console.error('Error subscribing to purchases:', error);
+    callback([]);
+  });
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -258,7 +275,8 @@ const firestoreUtils = {
   deleteProduct,
   subscribeProducts,
   createSale,
-  createPurchase
+  createPurchase,
+  subscribePurchases
 };
 
 export default firestoreUtils;
