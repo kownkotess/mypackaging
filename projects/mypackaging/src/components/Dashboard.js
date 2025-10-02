@@ -37,12 +37,12 @@ const Dashboard = () => {
             <button className="card-btn">View Products</button>
           </Link>
 
-          <div className="dashboard-card">
+          <Link to="/sales" className="dashboard-card">
             <div className="card-icon">🛒</div>
             <h3>Sales</h3>
             <p>Record new sales and transactions</p>
             <button className="card-btn">New Sale</button>
-          </div>
+          </Link>
 
           <div className="dashboard-card">
             <div className="card-icon">📋</div>
