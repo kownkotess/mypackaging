@@ -15,7 +15,7 @@ const Sales = () => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [customerName, setCustomerName] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
-  const [roundOff, setRoundOff] = useState('');
+  const [deduction, setDeduction] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -45,6 +45,8 @@ const Sales = () => {
       productId: product.id,
       name: product.name,
       unitPrice: product.unitPrice,
+      boxPrice: product.boxPrice || null,
+      packPrice: product.packPrice || null,
       bigBulkQty: product.bigBulkQty || 1,
       smallBulkQty: product.smallBulkQty || 1,
       qtyBox: 0,
@@ -61,13 +63,28 @@ const Sales = () => {
     const updatedProducts = [...selectedProducts];
     updatedProducts[index][field] = Math.max(0, Number(value) || 0);
     
-    // Calculate subtotal
+    // Calculate subtotal using different pricing logic
     const item = updatedProducts[index];
-    const totalUnits = (item.qtyBox * item.bigBulkQty) + 
-                      (item.qtyPack * item.smallBulkQty) + 
-                      item.qtyLoose;
-    item.subtotal = totalUnits * item.unitPrice;
+    let subtotal = 0;
     
+    // Calculate box subtotal (use boxPrice if available, otherwise unit price)
+    if (item.qtyBox > 0) {
+      const boxPrice = item.boxPrice || (item.unitPrice * item.bigBulkQty);
+      subtotal += item.qtyBox * boxPrice;
+    }
+    
+    // Calculate pack subtotal (use packPrice if available, otherwise unit price)
+    if (item.qtyPack > 0) {
+      const packPrice = item.packPrice || (item.unitPrice * item.smallBulkQty);
+      subtotal += item.qtyPack * packPrice;
+    }
+    
+    // Calculate loose units subtotal (always use unit price)
+    if (item.qtyLoose > 0) {
+      subtotal += item.qtyLoose * item.unitPrice;
+    }
+    
+    item.subtotal = subtotal;
     setSelectedProducts(updatedProducts);
   };
 
@@ -82,8 +99,8 @@ const Sales = () => {
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const roundOffAmount = Number(roundOff) || 0;
-    return subtotal + roundOffAmount;
+    const deductionAmount = Number(deduction) || 0;
+    return subtotal - deductionAmount;
   };
 
   const calculateRemaining = () => {
@@ -97,6 +114,16 @@ const Sales = () => {
     
     if (selectedProducts.length === 0) {
       setError('Please add at least one product to the sale.');
+      return;
+    }
+
+    const total = calculateTotal();
+    const paid = Number(paidAmount) || 0;
+    const remaining = calculateRemaining();
+
+    // Customer name validation for credit sales
+    if (remaining > 0 && !customerName.trim()) {
+      setError('Customer name is required for credit sales (when paid amount is less than total).');
       return;
     }
 
@@ -118,13 +145,10 @@ const Sales = () => {
 
     try {
       const subtotal = calculateSubtotal();
-      const total = calculateTotal();
-      const paid = Number(paidAmount) || 0;
-      const remaining = calculateRemaining();
 
       const saleData = {
         subtotal,
-        roundOff: Number(roundOff) || 0,
+        roundOff: -(Number(deduction) || 0), // Store as negative for deduction
         total,
         paymentType: paymentMethod,
         cashTotal: paymentMethod === 'cash' ? paid : 0,
@@ -132,7 +156,7 @@ const Sales = () => {
         paidAmount: paid,
         remaining,
         status: remaining > 0 ? 'Hutang' : 'Paid',
-        customerName: customerName.trim() || null,
+        customerName: customerName.trim() || 'Walk In',
         createdBy: user?.email || 'Unknown',
         items: selectedProducts.map(item => ({
           productId: item.productId,
@@ -151,7 +175,7 @@ const Sales = () => {
       setSelectedProducts([]);
       setCustomerName('');
       setPaidAmount('');
-      setRoundOff('');
+      setDeduction('');
       setPaymentMethod('cash');
       
       alert('Sale recorded successfully!');
@@ -211,7 +235,9 @@ const Sales = () => {
               <div key={product.id} className="product-item">
                 <div className="product-info">
                   <h4>{product.name}</h4>
-                  <p>Price: RM{Number(product.unitPrice).toFixed(2)}</p>
+                  <p>Unit: RM{Number(product.unitPrice).toFixed(2)}</p>
+                  {product.boxPrice && <p>Box: RM{Number(product.boxPrice).toFixed(2)}</p>}
+                  {product.packPrice && <p>Pack: RM{Number(product.packPrice).toFixed(2)}</p>}
                   <p>Stock: {product.stockBalance} units</p>
                 </div>
                 <button
@@ -295,14 +321,14 @@ const Sales = () => {
                     <span>RM{calculateSubtotal().toFixed(2)}</span>
                   </div>
                   <div className="summary-row">
-                    <span>Round Off:</span>
+                    <span>Deduction:</span>
                     <input
                       type="number"
-                      value={roundOff}
-                      onChange={(e) => setRoundOff(e.target.value)}
+                      value={deduction}
+                      onChange={(e) => setDeduction(e.target.value)}
                       step="0.01"
                       placeholder="0.00"
-                      className="round-off-input"
+                      className="deduction-input"
                     />
                   </div>
                   <div className="summary-row total">

@@ -143,6 +143,18 @@ const Products = () => {
                       <span>Unit Price:</span>
                       <span className="price">RM{Number(product.unitPrice || 0).toFixed(2)}</span>
                     </div>
+                    {product.boxPrice && (
+                      <div className="detail-row">
+                        <span>Box Price:</span>
+                        <span className="price">RM{Number(product.boxPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {product.packPrice && (
+                      <div className="detail-row">
+                        <span>Pack Price:</span>
+                        <span className="price">RM{Number(product.packPrice).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="detail-row">
                       <span>Stock Balance:</span>
                       <span className="stock">{Number(product.stockBalance || 0)} units</span>

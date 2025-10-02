@@ -6,6 +6,8 @@ const ProductForm = ({ product, onClose }) => {
   const [formData, setFormData] = useState({
     name: '',
     unitPrice: '',
+    boxPrice: '',
+    packPrice: '',
     bigBulkQty: '',
     smallBulkQty: '',
     startingStock: '',
@@ -19,6 +21,8 @@ const ProductForm = ({ product, onClose }) => {
       setFormData({
         name: product.name || '',
         unitPrice: product.unitPrice || '',
+        boxPrice: product.boxPrice || '',
+        packPrice: product.packPrice || '',
         bigBulkQty: product.bigBulkQty || '',
         smallBulkQty: product.smallBulkQty || '',
         startingStock: product.stockBalance || '',
@@ -52,6 +56,8 @@ const ProductForm = ({ product, onClose }) => {
       const productData = {
         name: formData.name.trim(),
         unitPrice: Number(formData.unitPrice),
+        boxPrice: Number(formData.boxPrice) || null,
+        packPrice: Number(formData.packPrice) || null,
         bigBulkQty: Number(formData.bigBulkQty) || 1,
         smallBulkQty: Number(formData.smallBulkQty) || 1,
         reorderPoint: Number(formData.reorderPoint) || 0
@@ -121,6 +127,38 @@ const ProductForm = ({ product, onClose }) => {
                 step="0.01"
                 placeholder="0.00"
               />
+              <small>Price per individual unit</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="boxPrice">Box Price (RM)</label>
+              <input
+                type="number"
+                id="boxPrice"
+                name="boxPrice"
+                value={formData.boxPrice}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                placeholder="Optional - Leave empty to use unit price"
+              />
+              <small>Special price for selling by box (optional)</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="packPrice">Pack Price (RM)</label>
+              <input
+                type="number"
+                id="packPrice"
+                name="packPrice"
+                value={formData.packPrice}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                placeholder="Optional - Leave empty to use unit price"
+              />
+              <small>Special price for selling by pack (optional)</small>
             </div>
           </div>
 
