@@ -141,7 +141,7 @@ const Products = () => {
                   <div className="product-details">
                     <div className="detail-row">
                       <span>Unit Price:</span>
-                      <span className="price">₱{Number(product.unitPrice || 0).toFixed(2)}</span>
+                      <span className="price">RM{Number(product.unitPrice || 0).toFixed(2)}</span>
                     </div>
                     <div className="detail-row">
                       <span>Stock Balance:</span>

@@ -109,7 +109,7 @@ const ProductForm = ({ product, onClose }) => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="unitPrice">Unit Price * (₱)</label>
+              <label htmlFor="unitPrice">Unit Price * (RM)</label>
               <input
                 type="number"
                 id="unitPrice"
