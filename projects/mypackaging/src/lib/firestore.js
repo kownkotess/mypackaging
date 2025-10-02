@@ -87,20 +87,25 @@ export const subscribeProducts = (callback) => {
 export const createSale = async (saleData) => {
   try {
     return await runTransaction(db, async (transaction) => {
-      // Add sale document
-      const salesRef = collection(db, 'sales');
-      const saleDocRef = doc(salesRef);
+      // STEP 1: READ ALL PRODUCTS FIRST (before any writes)
+      const productReads = [];
+      const productRefs = [];
       
-      transaction.set(saleDocRef, {
-        ...saleData,
-        createdAt: serverTimestamp(),
-        status: saleData.remaining > 0 ? 'Hutang' : 'Paid'
-      });
-
-      // Update product stock for each item
       for (const item of saleData.items) {
         const productRef = doc(db, 'products', item.productId);
-        const productDoc = await transaction.get(productRef);
+        productRefs.push(productRef);
+        productReads.push(transaction.get(productRef));
+      }
+      
+      // Wait for all product reads to complete
+      const productDocs = await Promise.all(productReads);
+      
+      // Validate all products and stock availability
+      const stockUpdates = [];
+      for (let i = 0; i < productDocs.length; i++) {
+        const productDoc = productDocs[i];
+        const item = saleData.items[i];
+        const productRef = productRefs[i];
         
         if (!productDoc.exists()) {
           throw new Error(`Product ${item.productId} not found`);
@@ -112,20 +117,43 @@ export const createSale = async (saleData) => {
         if (productData.stockBalance < requiredUnits) {
           throw new Error(`Insufficient stock for ${productData.name}`);
         }
-
-        transaction.update(productRef, {
+        
+        // Prepare stock update data
+        stockUpdates.push({
+          ref: productRef,
           stockBalance: productData.stockBalance - requiredUnits,
-          quantitySold: (productData.quantitySold || 0) + requiredUnits,
+          quantitySold: (productData.quantitySold || 0) + requiredUnits
+        });
+      }
+
+      // STEP 2: PERFORM ALL WRITES (after all reads are complete)
+      // Add sale document
+      const salesRef = collection(db, 'sales');
+      const saleDocRef = doc(salesRef);
+      
+      transaction.set(saleDocRef, {
+        ...saleData,
+        createdAt: serverTimestamp(),
+        status: saleData.remaining > 0 ? 'Hutang' : 'Paid'
+      });
+
+      // Update product stock for each item
+      stockUpdates.forEach(update => {
+        transaction.update(update.ref, {
+          stockBalance: update.stockBalance,
+          quantitySold: update.quantitySold,
           updatedAt: serverTimestamp()
         });
+      });
 
-        // Add line item
+      // Add line items
+      saleData.items.forEach(item => {
         const lineItemRef = collection(db, 'sales', saleDocRef.id, 'lineItems');
         transaction.set(doc(lineItemRef), {
           ...item,
           createdAt: serverTimestamp()
         });
-      }
+      });
 
       return saleDocRef.id;
     });
@@ -151,6 +179,41 @@ const calculateRequiredUnits = (item, productData) => {
 export const createPurchase = async (purchaseData) => {
   try {
     return await runTransaction(db, async (transaction) => {
+      // STEP 1: READ ALL PRODUCTS FIRST (if status is received)
+      let productReads = [];
+      let productRefs = [];
+      let stockUpdates = [];
+
+      if (purchaseData.status === '✅ Received' && purchaseData.items) {
+        for (const item of purchaseData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+        
+        // Wait for all product reads to complete
+        const productDocs = await Promise.all(productReads);
+        
+        // Prepare stock updates
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = purchaseData.items[i];
+          const productRef = productRefs[i];
+          
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qty = Number(item.qty) || 0;
+            
+            stockUpdates.push({
+              ref: productRef,
+              stockBalance: (productData.stockBalance || 0) + qty,
+              totalPurchased: (productData.totalPurchased || 0) + qty
+            });
+          }
+        }
+      }
+
+      // STEP 2: PERFORM ALL WRITES
       // Add purchase document
       const purchasesRef = collection(db, 'purchases');
       const purchaseDocRef = doc(purchasesRef);
@@ -161,29 +224,23 @@ export const createPurchase = async (purchaseData) => {
       });
 
       // Update product stock if status is received
-      if (purchaseData.status === '✅ Received') {
-        for (const item of purchaseData.items || []) {
-          const productRef = doc(db, 'products', item.productId);
-          const productDoc = await transaction.get(productRef);
-          
-          if (productDoc.exists()) {
-            const productData = productDoc.data();
-            const qty = Number(item.qty) || 0;
-            
-            transaction.update(productRef, {
-              stockBalance: (productData.stockBalance || 0) + qty,
-              totalPurchased: (productData.totalPurchased || 0) + qty,
-              updatedAt: serverTimestamp()
-            });
-          }
+      stockUpdates.forEach(update => {
+        transaction.update(update.ref, {
+          stockBalance: update.stockBalance,
+          totalPurchased: update.totalPurchased,
+          updatedAt: serverTimestamp()
+        });
+      });
 
-          // Add line item
+      // Add line items
+      if (purchaseData.items) {
+        purchaseData.items.forEach(item => {
           const lineItemRef = collection(db, 'purchases', purchaseDocRef.id, 'lineItems');
           transaction.set(doc(lineItemRef), {
             ...item,
             createdAt: serverTimestamp()
           });
-        }
+        });
       }
 
       return purchaseDocRef.id;
