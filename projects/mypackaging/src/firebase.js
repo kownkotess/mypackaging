@@ -1,32 +1,24 @@
-// Firebase scaffold. Fill .env with your Firebase web app config first.
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
-// Prefer env vars; fall back to the provided dev config if envs are not set
+// TODO: Replace with your Firebase project configuration
+// You'll need to get this from your Firebase Console > Project Settings > General > Your apps
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || 'AIzaSyAnyCM5xlBSQzGvVCaYMGrl5qBH5UQbScg',
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || 'mypackagingbybellestore.firebaseapp.com',
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || 'mypackagingbybellestore',
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || 'mypackagingbybellestore.firebasestorage.app',
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || '951765544285',
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || '1:951765544285:web:e80ed69f7803ce9d204cb4',
+  apiKey: "your-api-key-here",
+  authDomain: "your-auth-domain-here",
+  projectId: "your-project-id-here",
+  storageBucket: "your-storage-bucket-here",
+  messagingSenderId: "your-messaging-sender-id-here",
+  appId: "your-app-id-here"
 };
 
-// Guard against missing envs in dev to help early
-function assertConfig(cfg) {
-  const missing = Object.entries(cfg)
-    .filter(([, v]) => !v)
-    .map(([k]) => k);
-  if (missing.length) {
-    // eslint-disable-next-line no-console
-    console.warn('Missing Firebase envs:', missing.join(', '), '\nUsing fallback inline Firebase config for development.');
-  }
-}
-
-assertConfig(firebaseConfig);
-
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// Initialize Firebase services
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
 export default app;
