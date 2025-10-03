@@ -322,7 +322,11 @@ const Reports = () => {
 
       const quantity = productSales.reduce((sum, sale) => {
         const productItems = sale.items?.filter(item => item.productId === product.id) || [];
-        return sum + productItems.reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+        return sum + productItems.reduce((itemSum, item) => {
+          // Calculate total quantity from qtyBox, qtyPack, and qtyLoose
+          const totalQty = (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0);
+          return itemSum + totalQty;
+        }, 0);
       }, 0);
 
       return {
@@ -1032,21 +1036,21 @@ const Reports = () => {
                             </td>
                             <td>
                               <div className="products-list">
-                                {(sale.products || []).map((product, index) => (
+                                {(sale.items || []).map((item, index) => (
                                   <div key={index} className="product-item">
-                                    <span className="product-name">{product.name || 'Unknown Product'}</span>
-                                    <span className="product-quantity">×{product.quantity || 0}</span>
-                                    <span className="product-price">RM {(product.unitPrice || 0).toFixed(2)}</span>
+                                    <span className="product-name">{item.name || 'Unknown Product'}</span>
+                                    <span className="product-quantity">×{item.quantity || (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0)}</span>
+                                    <span className="product-price">RM {(item.unitPrice || 0).toFixed(2)}</span>
                                   </div>
                                 ))}
-                                {(!sale.products || sale.products.length === 0) && (
+                                {(!sale.items || sale.items.length === 0) && (
                                   <div className="no-products">No products found</div>
                                 )}
                               </div>
                             </td>
                             <td>
                               <div className="amount-info">
-                                <strong className="total-amount">RM {(sale.totalAmount || 0).toFixed(2)}</strong>
+                                <strong className="total-amount">RM {(sale.total || 0).toFixed(2)}</strong>
                                 {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
                                   <span className="remaining-amount">
                                     Outstanding: RM {(sale.remaining || 0).toFixed(2)}
