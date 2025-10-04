@@ -268,6 +268,101 @@ export const subscribePurchases = (callback) => {
   });
 };
 
+// Update purchase (mainly for status changes)
+export const updatePurchase = async (purchaseId, updateData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const purchaseRef = doc(db, 'purchases', purchaseId);
+      const purchaseDoc = await transaction.get(purchaseRef);
+      
+      if (!purchaseDoc.exists()) {
+        throw new Error('Purchase not found');
+      }
+      
+      const currentPurchase = purchaseDoc.data();
+      const newStatus = updateData.status;
+      const oldStatus = currentPurchase.status;
+      
+      // If changing status to "Received", update stock levels
+      if (newStatus === '✅ Received' && oldStatus !== '✅ Received' && currentPurchase.items) {
+        // Read all products first
+        const productReads = [];
+        const productRefs = [];
+        
+        for (const item of currentPurchase.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+        
+        const productDocs = await Promise.all(productReads);
+        
+        // Update stock for each product
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = currentPurchase.items[i];
+          const productRef = productRefs[i];
+          
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qty = Number(item.qty) || 0;
+            
+            transaction.update(productRef, {
+              stockBalance: (productData.stockBalance || 0) + qty,
+              totalPurchased: (productData.totalPurchased || 0) + qty,
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+      }
+      
+      // If changing status from "Received" to something else, remove stock
+      if (oldStatus === '✅ Received' && newStatus !== '✅ Received' && currentPurchase.items) {
+        // Read all products first
+        const productReads = [];
+        const productRefs = [];
+        
+        for (const item of currentPurchase.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+        
+        const productDocs = await Promise.all(productReads);
+        
+        // Remove stock for each product
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = currentPurchase.items[i];
+          const productRef = productRefs[i];
+          
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qty = Number(item.qty) || 0;
+            
+            transaction.update(productRef, {
+              stockBalance: Math.max(0, (productData.stockBalance || 0) - qty),
+              totalPurchased: Math.max(0, (productData.totalPurchased || 0) - qty),
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+      }
+      
+      // Update the purchase document
+      transaction.update(purchaseRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      return purchaseId;
+    });
+  } catch (error) {
+    console.error('Error updating purchase:', error);
+    throw error;
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -276,6 +371,7 @@ const firestoreUtils = {
   subscribeProducts,
   createSale,
   createPurchase,
+  updatePurchase,
   subscribePurchases
 };
 

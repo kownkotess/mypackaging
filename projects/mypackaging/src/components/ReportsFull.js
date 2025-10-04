@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
 import { 
   collection, 
@@ -34,6 +35,7 @@ import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 
 const Reports = () => {
+  const { showSuccess, showError, showConfirm } = useAlert();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('financial');
   const [dateRange, setDateRange] = useState('month');
@@ -372,7 +374,7 @@ const Reports = () => {
       const element = componentRef.current;
       if (!element) {
         console.error('Report element not found');
-        alert('Report content not found. Please try again.');
+        showError('Report content not found. Please try again.');
         return;
       }
 
@@ -423,7 +425,7 @@ const Reports = () => {
       
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('PDF export failed. Error: ' + error.message);
+      showError('PDF export failed. Error: ' + error.message);
       
       // Reset button text
       const originalButton = document.querySelector('.export-btn');
@@ -491,7 +493,7 @@ const Reports = () => {
       
     } catch (error) {
       console.error('Error generating Excel:', error);
-      alert('Excel export failed. Error: ' + error.message);
+      showError('Excel export failed. Error: ' + error.message);
       
       // Reset button text
       const originalButton = document.querySelectorAll('.export-btn')[1];
@@ -553,14 +555,13 @@ const Reports = () => {
   };
 
   const handleDeleteSale = async (sale) => {
-    if (!window.confirm(`Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.totalAmount || 0).toFixed(2)}\n\nThis action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      // Run transaction to delete sale and restore stock
-      await runTransaction(db, async (transaction) => {
-        // Get current product data to update stock
+    showConfirm(
+      `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\n\nThis action cannot be undone.`,
+      async () => {
+        try {
+          // Run transaction to delete sale and restore stock
+          await runTransaction(db, async (transaction) => {
+            // Get current product data to update stock
         const productUpdates = [];
         
         // Check if products exist before processing
@@ -593,12 +594,14 @@ const Reports = () => {
         console.log('Sale deleted and stock restored:', productUpdates);
       });
 
-      alert('Sale deleted successfully! Stock has been restored for all products.');
+      showSuccess('Sale deleted successfully! Stock has been restored for all products.');
       
     } catch (error) {
       console.error('Error deleting sale:', error);
-      alert('Failed to delete sale. Please try again.');
+      showError('Failed to delete sale. Please try again.');
     }
+      }
+    );
   };
 
   if (loading) {
@@ -1095,14 +1098,14 @@ const Reports = () => {
                   <div className="stat-item">
                     <span className="stat-label">Total Revenue</span>
                     <span className="stat-value">
-                      RM {getFilteredSalesData().reduce((sum, sale) => sum + (sale.totalAmount || 0), 0).toFixed(2)}
+                      RM {getFilteredSalesData().reduce((sum, sale) => sum + (sale.total || 0), 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-label">Avg Sale Value</span>
                     <span className="stat-value">
                       RM {getFilteredSalesData().length > 0 
-                        ? (getFilteredSalesData().reduce((sum, sale) => sum + (sale.totalAmount || 0), 0) / getFilteredSalesData().length).toFixed(2)
+                        ? (getFilteredSalesData().reduce((sum, sale) => sum + (sale.total || 0), 0) / getFilteredSalesData().length).toFixed(2)
                         : '0.00'
                       }
                     </span>

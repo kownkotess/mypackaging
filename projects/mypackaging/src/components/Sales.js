@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getProducts, createSale } from '../lib/firestore';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
+import emailService from '../services/emailService';
 import './Sales.css';
 
 const Sales = () => {
   const { user } = useAuth();
+  const { showSuccess } = useAlert();
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +18,7 @@ const Sales = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [deduction, setDeduction] = useState('');
 
@@ -196,14 +200,26 @@ const Sales = () => {
 
       await createSale(saleData);
 
+      // Send email receipt if customer email is provided
+      if (customerEmail && emailService.isValidEmail(customerEmail)) {
+        try {
+          await emailService.sendSalesReceipt(saleData, customerEmail);
+          showSuccess('Sale recorded successfully! Receipt sent to ' + customerEmail);
+        } catch (emailError) {
+          console.error('Failed to send receipt email:', emailError);
+          showSuccess('Sale recorded successfully! (Note: Failed to send email receipt)');
+        }
+      } else {
+        showSuccess('Sale recorded successfully!');
+      }
+
       // Reset form
       setSelectedProducts([]);
       setCustomerName('');
+      setCustomerEmail('');
       setPaidAmount('');
       setDeduction('');
       setPaymentMethod('cash');
-      
-      alert('Sale recorded successfully!');
       
       // Reload products to get updated stock
       loadProducts();
@@ -373,6 +389,17 @@ const Sales = () => {
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="Enter customer name"
                     />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Email (Optional - for receipt)</label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="customer@example.com"
+                    />
+                    <small>Email receipt will be sent automatically if provided</small>
                   </div>
 
                   <div className="form-group">

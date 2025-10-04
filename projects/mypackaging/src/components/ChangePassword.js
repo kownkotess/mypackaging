@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   updatePassword, 
   reauthenticateWithCredential, 
@@ -11,6 +12,7 @@ import './ChangePassword.css';
 
 const ChangePassword = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,6 +22,10 @@ const ChangePassword = () => {
 
   // Check if user can change password (all except cashier)
   const canChangePassword = user?.email !== 'cashier@mypackaging.com';
+
+  const handleReturnToDashboard = () => {
+    navigate('/');
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -111,6 +117,16 @@ const ChangePassword = () => {
               <li>Manager: khairul@mypackaging.com</li>
             </ul>
           </div>
+          
+          <div className="form-actions">
+            <button 
+              type="button" 
+              onClick={handleReturnToDashboard}
+              className="btn btn-secondary return-dashboard-btn"
+            >
+              ← Return to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -179,6 +195,13 @@ const ChangePassword = () => {
               className="btn btn-primary change-password-btn"
             >
               {loading ? 'Updating...' : 'Update Password'}
+            </button>
+            <button 
+              type="button" 
+              onClick={handleReturnToDashboard}
+              className="btn btn-secondary return-dashboard-btn"
+            >
+              ← Return to Dashboard
             </button>
           </div>
         </form>

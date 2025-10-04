@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { subscribeProducts, subscribePurchases, createPurchase } from '../lib/firestore';
+import { subscribeProducts, subscribePurchases, createPurchase, updatePurchase } from '../lib/firestore';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
+import PurchaseDetailModal from './PurchaseDetailModal';
 import '../styles/Purchases.css';
 
 function Purchases() {
+  const { showSuccess, showError } = useAlert();
+  const { user } = useAuth();
+  
   // State for forms and data
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -18,8 +23,8 @@ function Purchases() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-
-  const { user } = useAuth();
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Subscribe to products and purchases
   useEffect(() => {
@@ -170,10 +175,14 @@ function Purchases() {
       setSelectedProducts([]);
       setShowForm(false);
       setSearchTerm('');
+      
+      // Show success message
+      showSuccess(`Purchase order created successfully! Supplier: ${supplierName.trim()}, Total: RM${calculateTotal().toFixed(2)}`);
 
     } catch (error) {
       console.error('Error creating purchase:', error);
-      setError('Failed to create purchase. Please try again.');
+      showError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
+      setError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -189,6 +198,35 @@ function Purchases() {
     setShowForm(false);
     setSearchTerm('');
     setError('');
+  };
+
+  // Handle purchase detail view
+  const handleViewDetails = (purchase) => {
+    setSelectedPurchase(purchase);
+    setShowDetailModal(true);
+  };
+
+  // Handle status change
+  const handleStatusChange = async (purchaseId, newStatus) => {
+    try {
+      setLoading(true);
+      await updatePurchase(purchaseId, { status: newStatus });
+      
+      if (newStatus === '✅ Received') {
+        showSuccess('Purchase status updated to "Received"! Stock quantities have been updated.');
+      } else {
+        showSuccess(`Purchase status updated to "${newStatus}"`);
+      }
+      
+      // Update the selected purchase for the modal
+      setSelectedPurchase(prev => prev ? { ...prev, status: newStatus } : null);
+      
+    } catch (error) {
+      console.error('Error updating purchase status:', error);
+      showError(`Failed to update status: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const statusOptions = [
@@ -440,7 +478,7 @@ function Purchases() {
                   {purchase.notes && <p>Notes: {purchase.notes}</p>}
                 </div>
                 <button
-                  onClick={() => alert(`Purchase Details:\nSupplier: ${purchase.supplierName}\nStatus: ${purchase.status}\nTotal: RM ${purchase.total?.toFixed(2)}\nItems: ${purchase.items?.length || 0}`)}
+                  onClick={() => handleViewDetails(purchase)}
                   className="btn-view-details"
                 >
                   View Details
@@ -450,6 +488,18 @@ function Purchases() {
           </div>
         )}
       </div>
+      
+      {/* Purchase Detail Modal */}
+      {showDetailModal && (
+        <PurchaseDetailModal
+          purchase={selectedPurchase}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedPurchase(null);
+          }}
+          onStatusChange={handleStatusChange}
+        />
+      )}
     </div>
   );
 }

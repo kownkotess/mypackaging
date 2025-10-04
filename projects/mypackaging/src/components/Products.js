@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { subscribeProducts, deleteProduct } from '../lib/firestore';
+import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
 import ProductForm from './ProductForm';
 import './Products.css';
 
 const Products = () => {
+  const { showConfirm } = useAlert();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -33,15 +35,18 @@ const Products = () => {
   };
 
   const handleDeleteProduct = async (productId, productName) => {
-    if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
-      try {
-        await deleteProduct(productId);
-        setError('');
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        setError('Failed to delete product. Please try again.');
+    showConfirm(
+      `Are you sure you want to delete "${productName}"? This action cannot be undone.`,
+      async () => {
+        try {
+          await deleteProduct(productId);
+          setError('');
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          setError('Failed to delete product. Please try again.');
+        }
       }
-    }
+    );
   };
 
   const handleFormClose = () => {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
 import { CanAccess } from './RoleComponents';
 import NotificationDropdown from './NotificationDropdown';
+import DashboardAlerts from './DashboardAlerts';
 import logo from '../assets/logo.png';
 import './Dashboard.css';
 
@@ -43,6 +44,9 @@ const Dashboard = () => {
       </header>
 
       <main className="dashboard-main">
+        {/* Dashboard Alert Center */}
+        <DashboardAlerts />
+
         {/* Role Information Panel */}
         <div className="role-info-panel">
           <div>
@@ -103,6 +107,16 @@ const Dashboard = () => {
               <h3>Analytics</h3>
               <p>Advanced reporting and business insights</p>
               <button className="card-btn">View Analytics</button>
+            </Link>
+          </CanAccess>
+
+          {/* Stock Monitoring - Manager and Admin only */}
+          <CanAccess module="analytics">
+            <Link to="/stock-monitoring" className="dashboard-card">
+              <div className="card-icon">📈</div>
+              <h3>Stock Monitoring</h3>
+              <p>Real-time inventory alerts and monitoring</p>
+              <button className="card-btn">Monitor Stock</button>
             </Link>
           </CanAccess>
 

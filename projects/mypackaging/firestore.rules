@@ -66,6 +66,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update: if isManagerOrAdmin();
       allow delete: if isAdmin();
+      
+      // Line items subcollection for purchases
+      match /lineItems/{lineItemId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isManagerOrAdmin();
+        allow delete: if isAdmin();
+      }
     }
     
     // Hutang (Credit) collection

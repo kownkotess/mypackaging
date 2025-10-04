@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useAlert } from '../context/AlertContext';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
+import EmailSettings from './EmailSettings';
 import './Settings.css';
 
 const Settings = () => {
   const { user, userRole, hasRole } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
@@ -18,7 +21,7 @@ const Settings = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'system', 'operational', 'users', 'security'].includes(tabParam)) {
+    if (tabParam && ['profile', 'system', 'operational', 'email', 'users', 'security'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -52,10 +55,10 @@ const Settings = () => {
         updatedAt: new Date()
       });
       await fetchUsers(); // Refresh the list
-      alert('User role updated successfully!');
+      showSuccess('User role updated successfully!');
     } catch (error) {
       console.error('Error updating user role:', error);
-      alert('Failed to update user role. Please try again.');
+      showError('Failed to update user role. Please try again.');
     }
   };
 
@@ -101,6 +104,12 @@ const Settings = () => {
                 >
                   📋 Operations
                 </button>
+                <button 
+                  className={`nav-btn ${activeTab === 'email' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('email')}
+                >
+                  📧 Email Service
+                </button>
               </>
             )}
             
@@ -133,6 +142,10 @@ const Settings = () => {
             
             {activeTab === 'operational' && (userRole === 'admin' || userRole === 'manager') && (
               <OperationalSettings />
+            )}
+            
+            {activeTab === 'email' && (userRole === 'admin' || userRole === 'manager') && (
+              <EmailSettings />
             )}
             
             {activeTab === 'users' && userRole === 'admin' && (
@@ -535,6 +548,7 @@ const SecuritySettings = () => (
 );
 
 const PasswordResetRequests = () => {
+  const { showSuccess, showWarning } = useAlert();
   const { notifications, approveRequest, rejectRequest } = useNotifications();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -556,21 +570,21 @@ const PasswordResetRequests = () => {
     const success = await approveRequest(request.id, newTempPassword);
     if (success) {
       // In a real app, you would send the temporary password via email
-      alert(`Password reset approved! Temporary password: ${newTempPassword}\n\nNote: In production, this would be sent via email.`);
+      showSuccess(`Password reset approved! Temporary password: ${newTempPassword}\n\nNote: In production, this would be sent via email.`);
     }
     setProcessing(false);
   };
 
   const handleReject = async (request) => {
     if (!rejectionReason.trim()) {
-      alert('Please provide a reason for rejection.');
+      showWarning('Please provide a reason for rejection.');
       return;
     }
     
     setProcessing(true);
     const success = await rejectRequest(request.id, rejectionReason);
     if (success) {
-      alert('Password reset request rejected.');
+      showSuccess('Password reset request rejected.');
       setRejectionReason('');
       setSelectedRequest(null);
     }
