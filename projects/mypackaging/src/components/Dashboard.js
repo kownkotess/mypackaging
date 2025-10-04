@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
 import { CanAccess } from './RoleComponents';
+import NotificationDropdown from './NotificationDropdown';
 import logo from '../assets/logo.png';
 import './Dashboard.css';
 
@@ -30,6 +31,10 @@ const Dashboard = () => {
           <div className="user-info">
             <span>Welcome, {user?.email}</span>
             <span className={`role-badge ${userRole}`}>{userRole}</span>
+            <NotificationDropdown />
+            <Link to="/change-password" className="change-password-link">
+              🔐 Change Password
+            </Link>
             <button onClick={handleLogout} className="logout-btn">
               Logout
             </button>

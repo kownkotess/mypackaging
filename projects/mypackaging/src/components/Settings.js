@@ -2,14 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useNotifications } from '../hooks/useNotifications';
 import './Settings.css';
 
 const Settings = () => {
   const { user, userRole, hasRole } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Check URL parameters for tab selection
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['profile', 'system', 'operational', 'users', 'security'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
+
+  // Function to handle tab change and update URL
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    navigate(`/settings?tab=${tab}`);
+  };
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -64,7 +82,7 @@ const Settings = () => {
           <div className="settings-nav">
             <button 
               className={`nav-btn ${activeTab === 'profile' ? 'active' : ''}`}
-              onClick={() => setActiveTab('profile')}
+              onClick={() => handleTabChange('profile')}
             >
               👤 Profile
             </button>
@@ -73,13 +91,13 @@ const Settings = () => {
               <>
                 <button 
                   className={`nav-btn ${activeTab === 'system' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('system')}
+                  onClick={() => handleTabChange('system')}
                 >
                   ⚙️ System
                 </button>
                 <button 
                   className={`nav-btn ${activeTab === 'operational' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('operational')}
+                  onClick={() => handleTabChange('operational')}
                 >
                   📋 Operations
                 </button>
@@ -90,13 +108,13 @@ const Settings = () => {
               <>
                 <button 
                   className={`nav-btn ${activeTab === 'users' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('users')}
+                  onClick={() => handleTabChange('users')}
                 >
                   👥 Users
                 </button>
                 <button 
                   className={`nav-btn ${activeTab === 'security' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('security')}
+                  onClick={() => handleTabChange('security')}
                 >
                   🔒 Security
                 </button>
@@ -431,6 +449,8 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
           </div>
         </div>
       </div>
+
+      <PasswordResetRequests />
     </div>
   );
 };
@@ -513,5 +533,150 @@ const SecuritySettings = () => (
     </div>
   </div>
 );
+
+const PasswordResetRequests = () => {
+  const { notifications, approveRequest, rejectRequest } = useNotifications();
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const handleApprove = async (request) => {
+    setProcessing(true);
+    const newTempPassword = generateTempPassword();
+    
+    const success = await approveRequest(request.id, newTempPassword);
+    if (success) {
+      // In a real app, you would send the temporary password via email
+      alert(`Password reset approved! Temporary password: ${newTempPassword}\n\nNote: In production, this would be sent via email.`);
+    }
+    setProcessing(false);
+  };
+
+  const handleReject = async (request) => {
+    if (!rejectionReason.trim()) {
+      alert('Please provide a reason for rejection.');
+      return;
+    }
+    
+    setProcessing(true);
+    const success = await rejectRequest(request.id, rejectionReason);
+    if (success) {
+      alert('Password reset request rejected.');
+      setRejectionReason('');
+      setSelectedRequest(null);
+    }
+    setProcessing(false);
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    return timestamp.toDate().toLocaleString();
+  };
+
+  return (
+    <div className="settings-group" id="user-management">
+      <h3>
+        🔔 Password Reset Requests 
+        {notifications.length > 0 && (
+          <span className="requests-count">({notifications.length} pending)</span>
+        )}
+      </h3>
+      <div className="password-reset-requests">
+        {notifications.length === 0 ? (
+          <div className="empty-state">
+            <p>No pending password reset requests.</p>
+          </div>
+        ) : (
+          <div className="requests-table">
+            <div className="table-header">
+              <div className="header-cell">User Email</div>
+              <div className="header-cell">Requested At</div>
+              <div className="header-cell">Reason</div>
+              <div className="header-cell">Actions</div>
+            </div>
+            {notifications.map((request) => (
+              <div key={request.id} className="table-row">
+                <div className="table-cell">
+                  <strong>{request.email}</strong>
+                </div>
+                <div className="table-cell">
+                  {formatDate(request.requestedAt)}
+                </div>
+                <div className="table-cell">
+                  {request.reason || 'User forgot password'}
+                </div>
+                <div className="table-cell">
+                  <div className="request-actions">
+                    <button
+                      className="btn btn-sm btn-success"
+                      onClick={() => handleApprove(request)}
+                      disabled={processing}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => setSelectedRequest(request)}
+                      disabled={processing}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedRequest && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h4>Reject Password Reset Request</h4>
+            <p>User: <strong>{selectedRequest.email}</strong></p>
+            <div className="form-group">
+              <label>Reason for rejection:</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please provide a reason..."
+                rows="3"
+                className="form-control"
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn btn-danger"
+                onClick={() => handleReject(selectedRequest)}
+                disabled={processing || !rejectionReason.trim()}
+              >
+                {processing ? 'Processing...' : 'Confirm Rejection'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setSelectedRequest(null);
+                  setRejectionReason('');
+                }}
+                disabled={processing}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Settings;

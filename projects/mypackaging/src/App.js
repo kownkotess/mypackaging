@@ -13,6 +13,7 @@ import Hutang from './components/Hutang';
 import Analytics from './components/Analytics';
 import Reports from './components/ReportsFull';
 import Settings from './components/Settings';
+import ChangePassword from './components/ChangePassword';
 
 function App() {
   return (
@@ -74,6 +75,13 @@ function App() {
             <Route path="/settings" element={
               <ProtectedRoute module="settings">
                 <Settings />
+              </ProtectedRoute>
+            } />
+            
+            {/* Change Password - accessible to all authenticated users except cashier */}
+            <Route path="/change-password" element={
+              <ProtectedRoute>
+                <ChangePassword />
               </ProtectedRoute>
             } />
           </Routes>

@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions for role checking
+    function getUserRole(email) {
+      return email == 'admin@mypackaging.com' ? 'admin' :
+             email == 'khairul@mypackaging.com' ? 'manager' :
+             email == 'yeen@mypackaging.com' ? 'manager' :
+             email == 'shazila@mypackaging.com' ? 'manager' :
+             email == 'masliza@mypackaging.com' ? 'manager' :
+             email == 'cashier@mypackaging.com' ? 'staff' : 'staff';
+    }
+    
+    function isAdmin() {
+      return request.auth != null && getUserRole(request.auth.token.email) == 'admin';
+    }
+    
+    function isManager() {
+      return request.auth != null && getUserRole(request.auth.token.email) == 'manager';
+    }
+    
+    function isStaff() {
+      return request.auth != null && getUserRole(request.auth.token.email) == 'staff';
+    }
+    
+    function isManagerOrAdmin() {
+      return isAdmin() || isManager();
+    }
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function canChangePassword() {
+      return isAuthenticated() && request.auth.token.email != 'cashier@mypackaging.com';
+    }
+    
+    // Products collection
+    // Admin: full access | Manager: view, create, edit | Staff: no access
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Sales collection
+    // Admin: full access | Manager: view, create, edit | Staff: view, create
+    match /sales/{saleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+      
+      // Line items subcollection
+      match /lineItems/{lineItemId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isManagerOrAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+    
+    // Purchases collection
+    // Admin: full access | Manager: view, create, edit | Staff: no access
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Hutang (Credit) collection
+    // Admin: full access | Manager: view, create, edit | Staff: view only
+    match /hutang/{hutangId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Users collection (for user management)
+    // Admin: full access | Manager: no access | Staff: no access
+    match /users/{userId} {
+      allow read, write: if isAdmin();
+      // Users can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Settings collection
+    // Admin: full access | Manager: no access | Staff: no access
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Audit logs collection
+    // Admin: full access | Manager: read only | Staff: no access
+    match /auditLogs/{logId} {
+      allow read: if isManagerOrAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // Reports collection (if you store report configurations)
+    // Admin: full access | Manager: view, create | Staff: no access
+    match /reports/{reportId} {
+      allow read: if isManagerOrAdmin();
+      allow create: if isManagerOrAdmin();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Stock adjustments collection
+    // Admin: full access | Manager: view, create, edit | Staff: no access
+    match /stockAdjustments/{adjustmentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Suppliers collection
+    // Admin: full access | Manager: view, create, edit | Staff: no access
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Customer data collection
+    // Admin: full access | Manager: view, create, edit | Staff: view, create
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Notifications collection
+    // Admin: full access | Manager: view | Staff: view
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // System logs collection
+    // Admin: full access | Manager: no access | Staff: no access
+    match /systemLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Configuration collection
+    // Admin: full access | Manager: read only | Staff: no access
+    match /configuration/{configId} {
+      allow read: if isManagerOrAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // Backup metadata collection
+    // Admin: full access | Manager: no access | Staff: no access
+    match /backups/{backupId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Password reset requests collection
+    // Any user (authenticated or not) can create requests (for forgot password)
+    // Admin can read and update (to process requests)
+    match /passwordResetRequests/{requestId} {
+      allow create: if true;  // Allow anyone to create password reset requests
+      allow read, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Default deny rule for any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
