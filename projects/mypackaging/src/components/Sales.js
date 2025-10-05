@@ -34,7 +34,11 @@ const Sales = () => {
   const loadProducts = async () => {
     try {
       const productsData = await getProducts();
-      setProducts(productsData);
+      // Sort products alphabetically by name
+      const sortedProducts = productsData.sort((a, b) => 
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      );
+      setProducts(sortedProducts);
       setLoading(false);
     } catch (error) {
       console.error('Error loading products:', error);

@@ -20,7 +20,11 @@ const Products = () => {
 
   useEffect(() => {
     const unsubscribe = subscribeProducts((productsData) => {
-      setProducts(productsData);
+      // Sort products alphabetically by name
+      const sortedProducts = productsData.sort((a, b) => 
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      );
+      setProducts(sortedProducts);
       setLoading(false);
     });
 

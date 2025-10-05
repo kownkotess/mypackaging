@@ -65,7 +65,11 @@ const Analytics = () => {
         id: doc.id,
         ...doc.data()
       }));
-      setProducts(productsData);
+      // Sort products alphabetically by name
+      const sortedProducts = productsData.sort((a, b) => 
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      );
+      setProducts(sortedProducts);
     }));
 
     // Purchases data
