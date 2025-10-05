@@ -73,6 +73,15 @@
   flex: 1;
 }
 
+.form-row.full-width {
+  display: block;
+}
+
+.form-row.full-width .form-group {
+  width: 100%;
+  flex: none;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
@@ -91,13 +100,15 @@
   border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 14px;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   box-sizing: border-box;
+  background: white;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: #004D24;
+  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
 }
 
 .form-group small {
@@ -206,21 +217,22 @@
 /* Description Textarea Styling */
 .description-textarea {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #e1e5e9;
-  border-radius: 6px;
+  padding: 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
   min-height: 80px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   background: white;
+  box-sizing: border-box;
 }
 
 .description-textarea:focus {
   outline: none;
   border-color: #004D24;
-  box-shadow: 0 0 0 2px rgba(0, 77, 36, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
 }
 
 .description-textarea::placeholder {

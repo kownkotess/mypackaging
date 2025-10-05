@@ -307,8 +307,10 @@ export const updatePurchase = async (purchaseId, updateData) => {
       const newStatus = updateData.status;
       const oldStatus = currentPurchase.status;
       
-      // If changing status to "Received", update stock levels
-      if (newStatus === '✅ Received' && oldStatus !== '✅ Received' && currentPurchase.items) {
+      // If changing status to "Received" or "Received Partial", update stock levels
+      if ((newStatus === '✅ Received' || newStatus === '📦❗ Received Partial') && 
+          oldStatus !== '✅ Received' && oldStatus !== '📦❗ Received Partial' && 
+          currentPurchase.items) {
         // Read all products first
         const productReads = [];
         const productRefs = [];
@@ -329,19 +331,30 @@ export const updatePurchase = async (purchaseId, updateData) => {
           
           if (productDoc.exists()) {
             const productData = productDoc.data();
-            const qty = Number(item.qty) || 0;
             
-            transaction.update(productRef, {
-              stockBalance: (productData.stockBalance || 0) + qty,
-              totalPurchased: (productData.totalPurchased || 0) + qty,
-              updatedAt: serverTimestamp()
-            });
+            // For partial deliveries, use received quantity; for full delivery, use ordered quantity
+            let qtyToAdd;
+            if (newStatus === '📦❗ Received Partial') {
+              qtyToAdd = Number(item.receivedQty) || 0;
+            } else {
+              qtyToAdd = Number(item.qty) || 0;
+            }
+            
+            if (qtyToAdd > 0) {
+              transaction.update(productRef, {
+                stockBalance: (productData.stockBalance || 0) + qtyToAdd,
+                totalPurchased: (productData.totalPurchased || 0) + qtyToAdd,
+                updatedAt: serverTimestamp()
+              });
+            }
           }
         }
       }
       
-      // If changing status from "Received" to something else, remove stock
-      if (oldStatus === '✅ Received' && newStatus !== '✅ Received' && currentPurchase.items) {
+      // If changing status from "Received" or "Received Partial" to something else, remove stock
+      if ((oldStatus === '✅ Received' || oldStatus === '📦❗ Received Partial') && 
+          newStatus !== '✅ Received' && newStatus !== '📦❗ Received Partial' && 
+          currentPurchase.items) {
         // Read all products first
         const productReads = [];
         const productRefs = [];
@@ -362,11 +375,18 @@ export const updatePurchase = async (purchaseId, updateData) => {
           
           if (productDoc.exists()) {
             const productData = productDoc.data();
-            const qty = Number(item.qty) || 0;
+            
+            // For partial deliveries, remove received quantity; for full delivery, remove ordered quantity
+            let qtyToRemove;
+            if (oldStatus === '📦❗ Received Partial') {
+              qtyToRemove = Number(item.receivedQty) || 0;
+            } else {
+              qtyToRemove = Number(item.qty) || 0;
+            }
             
             transaction.update(productRef, {
-              stockBalance: Math.max(0, (productData.stockBalance || 0) - qty),
-              totalPurchased: Math.max(0, (productData.totalPurchased || 0) - qty),
+              stockBalance: Math.max(0, (productData.stockBalance || 0) - qtyToRemove),
+              totalPurchased: Math.max(0, (productData.totalPurchased || 0) - qtyToRemove),
               updatedAt: serverTimestamp()
             });
           }

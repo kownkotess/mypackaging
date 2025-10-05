@@ -782,3 +782,143 @@
     font-size: 0.8rem;
   }
 }
+
+/* Overall Discount Controls */
+.discount-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.discount-type-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  min-width: 140px;
+  transition: border-color 0.2s ease;
+}
+
+.discount-type-select:focus {
+  outline: none;
+  border-color: #004D24;
+  box-shadow: 0 0 0 2px rgba(0, 77, 36, 0.1);
+}
+
+.discount-value-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100px;
+  transition: border-color 0.2s ease;
+}
+
+.discount-value-input:focus {
+  outline: none;
+  border-color: #004D24;
+  box-shadow: 0 0 0 2px rgba(0, 77, 36, 0.1);
+}
+
+/* Total Breakdown Styling */
+.discount-line {
+  color: #dc3545;
+  font-weight: 500;
+  padding: 4px 0;
+}
+
+.subtotal-line {
+  color: #6c757d;
+  padding: 4px 0;
+}
+
+.transportation-line {
+  color: #17a2b8;
+  padding: 4px 0;
+}
+
+.total-line {
+  border-top: 2px solid #004D24;
+  margin-top: 8px;
+  padding-top: 8px;
+  color: #004D24;
+}
+
+/* Responsive discount controls */
+@media (max-width: 480px) {
+  .discount-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .discount-type-select,
+  .discount-value-input {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+/* Supplier Auto-Suggestion Styles */
+.supplier-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.supplier-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.supplier-suggestion-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.supplier-suggestion-item:hover {
+  background-color: #f8f9fa;
+}
+
+.supplier-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.supplier-suggestion-item:active {
+  background-color: #e9ecef;
+}
+
+/* Focus styling for better UX */
+.supplier-input-container input:focus {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.supplier-input-container input:focus + .supplier-suggestions {
+  border-color: #004D24;
+}
+
+/* Responsive supplier suggestions */
+@media (max-width: 480px) {
+  .supplier-suggestions {
+    max-height: 150px;
+  }
+  
+  .supplier-suggestion-item {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}

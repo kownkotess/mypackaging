@@ -6,6 +6,21 @@
   overflow-y: auto;
 }
 
+.purchase-detail-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  background: #004D24 !important;
+  border-radius: 12px 12px 0 0;
+}
+
+.purchase-detail-modal .modal-header h2 {
+  margin: 0;
+  color: #FBB040 !important;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -27,25 +42,12 @@
   flex-direction: column;
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #FBB040;
-}
-
-.modal-close {
+.purchase-detail-modal .modal-close {
   background: none;
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #999;
+  color: #FBB040 !important;
   width: 32px;
   height: 32px;
   display: flex;
@@ -55,9 +57,9 @@
   transition: all 0.2s ease;
 }
 
-.modal-close:hover {
-  background: #f0f0f0;
-  color: #666;
+.purchase-detail-modal .modal-close:hover {
+  background: rgba(251, 176, 64, 0.1);
+  color: #FBB040 !important;
 }
 
 .modal-body {
@@ -104,7 +106,7 @@
 
 .status-select {
   padding: 6px 12px;
-  border: 1px solid #ddd;
+  border: 2px solid #ddd;
   border-radius: 6px;
   background: white;
   font-size: 14px;
@@ -115,8 +117,8 @@
 
 .status-select:focus {
   outline: none;
-  border-color: #004D24;
-  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
+  border-color: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
 }
 
 /* Items Section */
@@ -160,9 +162,21 @@
   color: #333;
 }
 
+.item-quantities {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .item-qty {
   font-size: 12px;
   color: #666;
+}
+
+.item-received {
+  font-size: 12px;
+  color: #28a745;
+  font-weight: 600;
 }
 
 .item-pricing {
@@ -221,10 +235,53 @@
   font-weight: 500;
 }
 
+/* Button Styles */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #28a745;
+  color: white;
+  border: 2px solid #28a745;
+}
+
+.btn-primary:hover {
+  background: #218838;
+  border-color: #218838;
+}
+
+.btn-secondary {
+  background: white;
+  color: #6c757d;
+  border: 2px solid #6c757d;
+}
+
+.btn-secondary:hover {
+  background: #6c757d;
+  color: white;
+}
+
 .received-info {
   background: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
+}
+
+.partial-info {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+.partial-info p {
+  margin: 5px 0;
 }
 
 .transit-info {

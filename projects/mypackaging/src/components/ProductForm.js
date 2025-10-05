@@ -132,7 +132,7 @@ const ProductForm = ({ product, onClose }) => {
         <form onSubmit={handleSubmit} className="product-form">
           {error && <div className="error-message">{error}</div>}
 
-          <div className="form-row">
+          <div className="form-row full-width">
             <div className="form-group">
               <label htmlFor="name">Product Name *</label>
               <input
@@ -147,7 +147,7 @@ const ProductForm = ({ product, onClose }) => {
             </div>
           </div>
 
-          <div className="form-row">
+          <div className="form-row full-width">
             <div className="form-group">
               <label htmlFor="description">Product Description</label>
               <textarea

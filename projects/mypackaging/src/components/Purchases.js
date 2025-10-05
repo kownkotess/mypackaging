@@ -26,6 +26,18 @@ function Purchases() {
   const [notes, setNotes] = useState('');
   const [transportationCost, setTransportationCost] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(''); // Optional date for backdating
+  
+  // Overall discount states
+  const [overallDiscountType, setOverallDiscountType] = useState('none');
+  const [overallDiscountValue, setOverallDiscountValue] = useState('');
+  
+  // Invoice tracking
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  
+  // Supplier auto-suggestion
+  const [supplierSuggestions, setSupplierSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [uniqueSuppliers, setUniqueSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +65,21 @@ function Purchases() {
 
     const unsubscribePurchases = subscribePurchases((purchasesData) => {
       setPurchases(purchasesData);
+      
+      // Extract unique supplier names for auto-suggestion
+      const suppliers = purchasesData
+        .map(p => p.supplierName)
+        .filter(name => name && name.trim())
+        .reduce((unique, name) => {
+          const trimmedName = name.trim();
+          if (!unique.find(s => s.toLowerCase() === trimmedName.toLowerCase())) {
+            unique.push(trimmedName);
+          }
+          return unique;
+        }, [])
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      
+      setUniqueSuppliers(suppliers);
     });
 
     return () => {
@@ -180,11 +207,32 @@ function Purchases() {
     }, 0);
   };
 
-  // Calculate total cost (subtotal + transportation)
+  // Calculate total cost (subtotal - overall discount + transportation)
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
+    let afterDiscount = subtotal;
+    
+    // Apply overall discount
+    if (overallDiscountType === 'percent' && overallDiscountValue) {
+      const discountAmount = (subtotal * Number(overallDiscountValue)) / 100;
+      afterDiscount = subtotal - discountAmount;
+    } else if (overallDiscountType === 'amount' && overallDiscountValue) {
+      afterDiscount = Math.max(0, subtotal - Number(overallDiscountValue));
+    }
+    
     const transportation = Number(transportationCost) || 0;
-    return subtotal + transportation;
+    return afterDiscount + transportation;
+  };
+  
+  // Calculate overall discount amount for display
+  const calculateOverallDiscount = () => {
+    const subtotal = calculateSubtotal();
+    if (overallDiscountType === 'percent' && overallDiscountValue) {
+      return (subtotal * Number(overallDiscountValue)) / 100;
+    } else if (overallDiscountType === 'amount' && overallDiscountValue) {
+      return Math.min(Number(overallDiscountValue), subtotal);
+    }
+    return 0;
   };
 
   // Handle form submission
@@ -217,6 +265,7 @@ function Purchases() {
     try {
       const purchaseData = {
         supplierName: supplierName.trim(),
+        invoiceNumber: invoiceNumber.trim() || null,
         status: purchaseStatus,
         notes: notes.trim(),
         transportationCost: Number(transportationCost) || 0,
@@ -230,7 +279,10 @@ function Purchases() {
           discountValue: p.discountValue,
           subtotal: calculateItemSubtotal(p)
         })),
+        overallDiscountType,
+        overallDiscountValue: Number(overallDiscountValue) || 0,
         subtotal: calculateSubtotal(),
+        overallDiscount: calculateOverallDiscount(),
         total: calculateTotal(),
         createdBy: user.uid,
         createdAt: new Date()
@@ -242,7 +294,7 @@ function Purchases() {
       await logActivity(
         'purchase_created',
         user.email || 'unknown_user',
-        `Purchase order created for supplier ${supplierName.trim()} - Total: RM${calculateTotal().toFixed(2)} (${purchaseStatus})`,
+        `Purchase order created for supplier ${supplierName.trim()} - Total: RM${calculateTotal().toFixed(2)}${calculateOverallDiscount() > 0 ? ` (Discount: RM${calculateOverallDiscount().toFixed(2)})` : ''} (${purchaseStatus})`,
         'action',
         {
           supplierName: supplierName.trim(),
@@ -275,16 +327,50 @@ function Purchases() {
     }
   };
 
+  // Handle supplier name input with auto-suggestion
+  const handleSupplierNameChange = (value) => {
+    setSupplierName(value);
+    
+    if (value.trim().length > 0) {
+      const filtered = uniqueSuppliers.filter(supplier =>
+        supplier.toLowerCase().includes(value.toLowerCase())
+      );
+      setSupplierSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSupplierSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+  
+  // Select supplier from suggestions
+  const selectSupplier = (supplierName) => {
+    setSupplierName(supplierName);
+    setShowSuggestions(false);
+    setSupplierSuggestions([]);
+  };
+  
+  // Hide suggestions when clicking outside
+  const handleSupplierBlur = () => {
+    // Delay hiding to allow click on suggestion
+    setTimeout(() => setShowSuggestions(false), 150);
+  };
+
   // Reset form
   const resetForm = () => {
     setSupplierName('');
     setPurchaseStatus('📦 Ordered');
     setNotes('');
     setTransportationCost('');
+    setOverallDiscountType('none');
+    setOverallDiscountValue('');
+    setInvoiceNumber('');
     setSelectedProducts([]);
     setShowForm(false);
     setSearchTerm('');
     setError('');
+    setShowSuggestions(false);
+    setSupplierSuggestions([]);
   };
 
   // Handle purchase detail view
@@ -294,7 +380,7 @@ function Purchases() {
   };
 
   // Handle status change
-  const handleStatusChange = async (purchaseId, newStatus) => {
+  const handleStatusChange = async (purchaseId, newStatus, updatedItems = null) => {
     try {
       setLoading(true);
       
@@ -302,7 +388,13 @@ function Purchases() {
       const purchase = purchases.find(p => p.id === purchaseId);
       const oldStatus = purchase?.status || 'Unknown';
       
-      await updatePurchase(purchaseId, { status: newStatus });
+      // Prepare update data
+      const updateData = { status: newStatus };
+      if (updatedItems) {
+        updateData.items = updatedItems;
+      }
+      
+      await updatePurchase(purchaseId, updateData);
       
       // Log the status change activity
       await logActivity(
@@ -391,6 +483,7 @@ function Purchases() {
     '📦 Ordered',
     '🚚 In Transit',
     '✅ Received',
+    '📦❗ Received Partial',
     '❌ Cancelled'
   ];
 
@@ -431,14 +524,48 @@ function Purchases() {
             <div className="form-row">
               <div className="form-group">
                 <label>Supplier Name:</label>
+                <div className="supplier-input-container">
+                  <input
+                    type="text"
+                    value={supplierName}
+                    onChange={(e) => handleSupplierNameChange(e.target.value)}
+                    onBlur={handleSupplierBlur}
+                    onFocus={() => {
+                      if (supplierName.trim().length > 0 && supplierSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    placeholder="Enter supplier name"
+                    required
+                    autoComplete="off"
+                  />
+                  {showSuggestions && supplierSuggestions.length > 0 && (
+                    <div className="supplier-suggestions">
+                      {supplierSuggestions.map((supplier, index) => (
+                        <div
+                          key={index}
+                          className="supplier-suggestion-item"
+                          onClick={() => selectSupplier(supplier)}
+                        >
+                          {supplier}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Invoice Number (Optional):</label>
                 <input
                   type="text"
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder="Enter supplier name"
-                  required
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Enter supplier invoice number"
                 />
               </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
                 <label>Status:</label>
                 <select 
@@ -482,6 +609,40 @@ function Purchases() {
                 onChange={(e) => setTransportationCost(e.target.value)}
                 placeholder="Enter transportation cost if applicable"
               />
+            </div>
+
+            {/* Overall Discount Section */}
+            <div className="form-group">
+              <label>Overall Discount - Optional:</label>
+              <div className="discount-controls">
+                <select
+                  value={overallDiscountType}
+                  onChange={(e) => {
+                    setOverallDiscountType(e.target.value);
+                    if (e.target.value === 'none') {
+                      setOverallDiscountValue('');
+                    }
+                  }}
+                  className="discount-type-select"
+                >
+                  <option value="none">No Discount</option>
+                  <option value="percent">Percent (%)</option>
+                  <option value="amount">Amount (RM)</option>
+                </select>
+                {overallDiscountType !== 'none' && (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    max={overallDiscountType === 'percent' ? '100' : undefined}
+                    value={overallDiscountValue}
+                    onChange={(e) => setOverallDiscountValue(e.target.value)}
+                    placeholder={overallDiscountType === 'percent' ? '0.00' : '0.00'}
+                    className="discount-value-input"
+                  />
+                )}
+              </div>
+              <small>Apply an overall discount to the entire purchase subtotal</small>
             </div>
 
             {/* Product Selection */}
@@ -595,6 +756,12 @@ function Purchases() {
                 <div className="purchase-total">
                   <div className="total-breakdown">
                     <div className="subtotal-line">Subtotal: RM {calculateSubtotal().toFixed(2)}</div>
+                    {overallDiscountType !== 'none' && calculateOverallDiscount() > 0 && (
+                      <div className="discount-line">
+                        Overall Discount ({overallDiscountType === 'percent' ? `${overallDiscountValue}%` : 'Amount'}): 
+                        -RM {calculateOverallDiscount().toFixed(2)}
+                      </div>
+                    )}
                     {transportationCost && Number(transportationCost) > 0 && (
                       <div className="transportation-line">Transportation: RM {Number(transportationCost).toFixed(2)}</div>
                     )}
@@ -664,6 +831,9 @@ function Purchases() {
                 </div>
                 <div className="purchase-info">
                   <p>Date: {purchase.createdAt?.toDate().toLocaleDateString()}</p>
+                  {purchase.invoiceNumber && (
+                    <p>Invoice: {purchase.invoiceNumber}</p>
+                  )}
                   <p>Items: {purchase.items?.length || 0}</p>
                   <p>Total: RM {purchase.total?.toFixed(2) || '0.00'}</p>
                   {purchase.notes && <p>Notes: {purchase.notes}</p>}
