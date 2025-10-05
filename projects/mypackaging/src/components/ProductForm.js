@@ -8,6 +8,7 @@ const ProductForm = ({ product, onClose }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
     unitPrice: '',
     boxPrice: '',
     packPrice: '',
@@ -23,6 +24,7 @@ const ProductForm = ({ product, onClose }) => {
     if (product) {
       setFormData({
         name: product.name || '',
+        description: product.description || '',
         unitPrice: product.unitPrice || '',
         boxPrice: product.boxPrice || '',
         packPrice: product.packPrice || '',
@@ -58,6 +60,7 @@ const ProductForm = ({ product, onClose }) => {
 
       const productData = {
         name: formData.name.trim(),
+        description: formData.description.trim() || null,
         unitPrice: Number(formData.unitPrice),
         boxPrice: Number(formData.boxPrice) || null,
         packPrice: Number(formData.packPrice) || null,
@@ -141,6 +144,22 @@ const ProductForm = ({ product, onClose }) => {
                 required
                 placeholder="Enter product name"
               />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="description">Product Description</label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Enter product description (optional)"
+                rows="3"
+                className="description-textarea"
+              />
+              <small className="field-note">Optional: Add details about the product, packaging, brand, etc.</small>
             </div>
           </div>
 

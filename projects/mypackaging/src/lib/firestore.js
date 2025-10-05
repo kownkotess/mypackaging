@@ -10,6 +10,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  where,
   runTransaction
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -32,7 +33,15 @@ export const getProducts = async () => {
 
 export const addProduct = async (productData) => {
   try {
+    // Check if product with same name already exists
     const productsRef = collection(db, 'products');
+    const nameQuery = query(productsRef, where('name', '==', productData.name.trim()));
+    const existingProducts = await getDocs(nameQuery);
+    
+    if (!existingProducts.empty) {
+      throw new Error(`A product with the name "${productData.name}" already exists. Please use a different name.`);
+    }
+
     const docRef = await addDoc(productsRef, {
       ...productData,
       stockBalance: productData.startingStock || 0,
@@ -49,6 +58,20 @@ export const addProduct = async (productData) => {
 
 export const updateProduct = async (productId, updates) => {
   try {
+    // If name is being updated, check if the new name already exists
+    if (updates.name) {
+      const productsRef = collection(db, 'products');
+      const nameQuery = query(productsRef, where('name', '==', updates.name.trim()));
+      const existingProducts = await getDocs(nameQuery);
+      
+      // Check if any existing product has this name AND it's not the current product being updated
+      const duplicateExists = existingProducts.docs.some(doc => doc.id !== productId);
+      
+      if (duplicateExists) {
+        throw new Error(`A product with the name "${updates.name}" already exists. Please use a different name.`);
+      }
+    }
+
     const productRef = doc(db, 'products', productId);
     await updateDoc(productRef, {
       ...updates,

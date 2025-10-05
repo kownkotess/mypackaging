@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContextWrapper';
 import { RequirePermission } from './RoleComponents';
 import { logActivity } from '../lib/auditLog';
 import ProductForm from './ProductForm';
+import ReturnToTop from './ReturnToTop';
 import './Products.css';
 
 const Products = () => {
@@ -17,6 +18,10 @@ const Products = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // Show 12 products per page
 
   useEffect(() => {
     const unsubscribe = subscribeProducts((productsData) => {
@@ -78,6 +83,22 @@ const Products = () => {
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const getStockStatus = (product) => {
     const stockBalance = Number(product.stockBalance) || 0;
@@ -155,8 +176,9 @@ const Products = () => {
             )}
           </div>
         ) : (
-          <div className="products-grid">
-            {filteredProducts.map((product) => {
+          <>
+            <div className="products-grid">
+              {currentProducts.map((product) => {
               const stockStatus = getStockStatus(product);
               return (
                 <div key={product.id} className={`product-card ${stockStatus}`}>
@@ -166,6 +188,12 @@ const Products = () => {
                       {getStockStatusText(stockStatus)}
                     </div>
                   </div>
+                  
+                  {product.description && (
+                    <div className="product-description">
+                      {product.description}
+                    </div>
+                  )}
                   
                   <div className="product-details">
                     <div className="detail-row">
@@ -223,9 +251,67 @@ const Products = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
+                </div>
+                <div className="pagination-controls">
+                  <button 
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="pagination-btn"
+                  >
+                    ‹ Previous
+                  </button>
+                  
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    const isCurrentPage = pageNumber === currentPage;
+                    
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      pageNumber === 1 || 
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    } else if (
+                      pageNumber === currentPage - 2 || 
+                      pageNumber === currentPage + 2
+                    ) {
+                      return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                    }
+                    return null;
+                  })}
+                  
+                  <button 
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="pagination-btn"
+                  >
+                    Next ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Return to Top Button */}
+      <ReturnToTop />
 
       {showAddForm && (
         <ProductForm

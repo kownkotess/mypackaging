@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
 import PurchaseDetailModal from './PurchaseDetailModal';
+import ReturnToTop from './ReturnToTop';
 import { logActivity } from '../lib/auditLog';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -35,6 +36,10 @@ function Purchases() {
   const [purchaseToDelete, setPurchaseToDelete] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [deletingPurchase, setDeletingPurchase] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); // Show 10 purchases per page
 
   // Subscribe to products and purchases
   useEffect(() => {
@@ -95,6 +100,22 @@ function Purchases() {
   };
 
   const filteredPurchases = getFilteredPurchases();
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPurchases.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPurchases = filteredPurchases.slice(startIndex, endIndex);
+
+  // Reset to first page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter]);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Add product to purchase
   const addProductToPurchase = (product) => {
@@ -633,8 +654,9 @@ function Purchases() {
             )}
           </div>
         ) : (
-          <div className="purchases-list">
-            {filteredPurchases.map(purchase => (
+          <>
+            <div className="purchases-list">
+              {currentPurchases.map(purchase => (
               <div key={purchase.id} className="purchase-item">
                 <div className="purchase-header">
                   <h3>{purchase.supplierName}</h3>
@@ -665,9 +687,67 @@ function Purchases() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredPurchases.length)} of {filteredPurchases.length} purchases
+                </div>
+                <div className="pagination-controls">
+                  <button 
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="pagination-btn"
+                  >
+                    ‹ Previous
+                  </button>
+                  
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    const isCurrentPage = pageNumber === currentPage;
+                    
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      pageNumber === 1 || 
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    } else if (
+                      pageNumber === currentPage - 2 || 
+                      pageNumber === currentPage + 2
+                    ) {
+                      return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                    }
+                    return null;
+                  })}
+                  
+                  <button 
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="pagination-btn"
+                  >
+                    Next ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+      
+      {/* Return to Top Button */}
+      <ReturnToTop />
       
       {/* Purchase Detail Modal */}
       {showDetailModal && (

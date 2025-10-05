@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
+import ReturnToTop from './ReturnToTop';
 import { logActivity } from '../lib/auditLog';
 import { 
   collection, 
@@ -66,6 +67,10 @@ const Reports = () => {
   const [stockMovementAnalysis, setStockMovementAnalysis] = useState([]);
   const [productPerformance, setProductPerformance] = useState([]);
   const [deadStock, setDeadStock] = useState([]);
+
+  // Pagination for sales
+  const [salesCurrentPage, setSalesCurrentPage] = useState(1);
+  const [salesItemsPerPage] = useState(15); // Show 15 sales per page
 
   // Subscribe to data
   useEffect(() => {
@@ -561,6 +566,31 @@ const Reports = () => {
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
       return dateB - dateA; // Most recent first
     });
+  };
+
+  // Get paginated sales data
+  const getPaginatedSalesData = () => {
+    const filteredSales = getFilteredSalesData();
+    const startIndex = (salesCurrentPage - 1) * salesItemsPerPage;
+    const endIndex = startIndex + salesItemsPerPage;
+    return filteredSales.slice(startIndex, endIndex);
+  };
+
+  // Sales pagination calculations
+  const totalSalesPages = Math.ceil(getFilteredSalesData().length / salesItemsPerPage);
+
+  // Reset sales pagination when date filter changes
+  useEffect(() => {
+    setSalesCurrentPage(1);
+  }, [dateRange]);
+
+  const handleSalesPageChange = (pageNumber) => {
+    setSalesCurrentPage(pageNumber);
+    // Scroll to sales section
+    const salesSection = document.querySelector('.sales-table-container');
+    if (salesSection) {
+      salesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleDeleteSale = async (sale) => {
@@ -1072,7 +1102,7 @@ const Reports = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {getFilteredSalesData().map(sale => (
+                        {getPaginatedSalesData().map(sale => (
                           <tr key={sale.id}>
                             <td>
                               <div className="date-info">
@@ -1152,6 +1182,60 @@ const Reports = () => {
                         <p>No sales found for the selected date range.</p>
                       </div>
                     )}
+
+                    {/* Sales Pagination Controls */}
+                    {totalSalesPages > 1 && (
+                      <div className="pagination-container">
+                        <div className="pagination-info">
+                          Showing {((salesCurrentPage - 1) * salesItemsPerPage) + 1}-{Math.min(salesCurrentPage * salesItemsPerPage, getFilteredSalesData().length)} of {getFilteredSalesData().length} sales
+                        </div>
+                        <div className="pagination-controls">
+                          <button 
+                            onClick={() => handleSalesPageChange(salesCurrentPage - 1)}
+                            disabled={salesCurrentPage === 1}
+                            className="pagination-btn"
+                          >
+                            ‹ Previous
+                          </button>
+                          
+                          {[...Array(totalSalesPages)].map((_, index) => {
+                            const pageNumber = index + 1;
+                            const isCurrentPage = pageNumber === salesCurrentPage;
+                            
+                            // Show first page, last page, current page, and pages around current
+                            if (
+                              pageNumber === 1 || 
+                              pageNumber === totalSalesPages ||
+                              (pageNumber >= salesCurrentPage - 1 && pageNumber <= salesCurrentPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={pageNumber}
+                                  onClick={() => handleSalesPageChange(pageNumber)}
+                                  className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                                >
+                                  {pageNumber}
+                                </button>
+                              );
+                            } else if (
+                              pageNumber === salesCurrentPage - 2 || 
+                              pageNumber === salesCurrentPage + 2
+                            ) {
+                              return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                            }
+                            return null;
+                          })}
+                          
+                          <button 
+                            onClick={() => handleSalesPageChange(salesCurrentPage + 1)}
+                            disabled={salesCurrentPage === totalSalesPages}
+                            className="pagination-btn"
+                          >
+                            Next ›
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1184,6 +1268,9 @@ const Reports = () => {
           </RequirePermission>
         )}
       </div>
+      
+      {/* Return to Top Button */}
+      <ReturnToTop />
     </div>
   );
 };
