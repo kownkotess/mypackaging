@@ -57,8 +57,7 @@ export const useDashboardAlerts = () => {
       // Monitor Credit Sales for overdue payments
       const creditSalesQuery = query(
         collection(db, 'sales'),
-        where('paymentType', '==', 'credit'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'Hutang')
       );
       unsubscribes.push(onSnapshot(creditSalesQuery, (snapshot) => {
         const creditSales = snapshot.docs.map(doc => ({
@@ -221,14 +220,14 @@ export const useDashboardAlerts = () => {
     const overdueThreshold = 7; // Days
     
     const overduePayments = creditSales.filter(sale => {
-      if (!sale.createdAt || sale.status === 'paid') return false;
+      if (!sale.createdAt || sale.status === 'Paid') return false;
       
       const daysDiff = Math.floor((now - sale.createdAt) / (1000 * 60 * 60 * 24));
       return daysDiff > overdueThreshold;
     });
 
     const totalOutstanding = creditSales
-      .filter(sale => sale.status !== 'paid')
+      .filter(sale => sale.status === 'Hutang')
       .reduce((sum, sale) => sum + (sale.remaining || sale.total || 0), 0);
 
     const creditAlerts = [];

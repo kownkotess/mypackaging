@@ -6,6 +6,7 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  Timestamp,
   onSnapshot,
   query,
   orderBy,
@@ -133,7 +134,7 @@ export const createSale = async (saleData) => {
       
       transaction.set(saleDocRef, {
         ...saleData,
-        createdAt: serverTimestamp(),
+        createdAt: saleData.customDate ? Timestamp.fromDate(new Date(saleData.customDate)) : serverTimestamp(),
         status: saleData.remaining > 0 ? 'Hutang' : 'Paid'
       });
 
@@ -220,7 +221,7 @@ export const createPurchase = async (purchaseData) => {
       
       transaction.set(purchaseDocRef, {
         ...purchaseData,
-        createdAt: serverTimestamp()
+        createdAt: purchaseData.customDate ? Timestamp.fromDate(new Date(purchaseData.customDate)) : serverTimestamp()
       });
 
       // Update product stock if status is received

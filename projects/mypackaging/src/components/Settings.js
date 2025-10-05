@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, getDocs, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { db, auth } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import EmailSettings from './EmailSettings';
+import businessInfoService from '../services/businessInfoService';
+import { getAuditLogs } from '../lib/auditLog';
 import './Settings.css';
 
 const Settings = () => {
@@ -16,6 +19,12 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [deletingLogs, setDeletingLogs] = useState(false);
 
   // Check URL parameters for tab selection
   useEffect(() => {
@@ -60,6 +69,207 @@ const Settings = () => {
       console.error('Error updating user role:', error);
       showError('Failed to update user role. Please try again.');
     }
+  };
+
+  const fetchAuditLogs = async () => {
+    setLoadingAuditLogs(true);
+    try {
+      const logs = await getAuditLogs(50); // Get last 50 audit logs
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      showError('Failed to load audit logs. Please try again.');
+    } finally {
+      setLoadingAuditLogs(false);
+    }
+  };
+
+  const handleViewAuditLogs = () => {
+    setShowAuditLogs(true);
+    fetchAuditLogs();
+  };
+
+  const exportAuditLogs = async () => {
+    try {
+      const logs = await getAuditLogs(1000); // Get more logs for export
+      const csvContent = [
+        ['Timestamp', 'User', 'Action', 'Category', 'Details', 'IP Address'].join(','),
+        ...logs.map(log => [
+          log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A',
+          log.userEmail || 'System',
+          log.action || 'N/A',
+          log.category || 'N/A',
+          `"${(log.details || '').replace(/"/g, '""')}"`,
+          log.ipAddress || 'N/A'
+        ].join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showSuccess('Audit logs exported successfully!');
+    } catch (error) {
+      console.error('Error exporting audit logs:', error);
+      showError('Failed to export audit logs. Please try again.');
+    }
+  };
+
+  // Handle delete audit logs with admin password verification
+  const handleDeleteAuditLogs = () => {
+    if (user?.email !== 'admin@mypackaging.com') {
+      showError('Only admin@mypackaging.com can delete audit logs');
+      return;
+    }
+    setShowDeleteConfirmation(true);
+  };
+
+  // Verify admin password and delete audit logs
+  const confirmDeleteAuditLogs = async (e) => {
+    e.preventDefault();
+    if (!adminPassword) {
+      showError('Please enter your password');
+      return;
+    }
+
+    setDeletingLogs(true);
+    try {
+      // Verify admin password
+      await signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      
+      // Get all audit logs
+      const auditLogsRef = collection(db, 'auditLogs');
+      const snapshot = await getDocs(auditLogsRef);
+      
+      // Delete in batches of 500 (Firestore limit)
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      
+      for (const doc of snapshot.docs) {
+        batch.delete(doc.ref);
+        batchCount++;
+        
+        if (batchCount >= 500) {
+          await batch.commit();
+          batchCount = 0;
+        }
+      }
+      
+      // Commit remaining deletes
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+      
+      showSuccess(`Successfully deleted ${snapshot.size} audit log entries`);
+      setShowDeleteConfirmation(false);
+      setAdminPassword('');
+      setAuditLogs([]);
+      
+    } catch (error) {
+      console.error('Error deleting audit logs:', error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        showError('Invalid password. Please try again.');
+      } else {
+        showError('Failed to delete audit logs. Please try again.');
+      }
+    } finally {
+      setDeletingLogs(false);
+    }
+  };
+
+  // Cleanup audit logs older than 6 months
+  const cleanupOldAuditLogs = async () => {
+    try {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      const auditLogsRef = collection(db, 'auditLogs');
+      const q = query(auditLogsRef, where('timestamp', '<', sixMonthsAgo));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('No old audit logs to cleanup');
+        return;
+      }
+      
+      // Delete in batches
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      
+      for (const doc of snapshot.docs) {
+        batch.delete(doc.ref);
+        batchCount++;
+        
+        if (batchCount >= 500) {
+          await batch.commit();
+          batchCount = 0;
+        }
+      }
+      
+      // Commit remaining deletes
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+      
+      console.log(`Cleaned up ${snapshot.size} old audit log entries`);
+      
+    } catch (error) {
+      console.error('Error cleaning up old audit logs:', error);
+    }
+  };
+
+  // Run cleanup on component mount and when viewing audit logs
+  useEffect(() => {
+    cleanupOldAuditLogs();
+  }, []);
+
+  const exportAllData = async () => {
+    try {
+      setLoadingUsers(true); // Reuse loading state for feedback
+      
+      const collections = ['products', 'sales', 'purchases', 'hutang', 'users', 'auditLogs'];
+      const allData = {};
+      
+      for (const collectionName of collections) {
+        try {
+          const snapshot = await getDocs(collection(db, collectionName));
+          allData[collectionName] = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            // Convert Firestore timestamps to readable dates
+            ...(doc.data().createdAt && { createdAt: doc.data().createdAt.toDate?.()?.toISOString() }),
+            ...(doc.data().updatedAt && { updatedAt: doc.data().updatedAt.toDate?.()?.toISOString() }),
+            ...(doc.data().timestamp && { timestamp: doc.data().timestamp.toDate?.()?.toISOString() })
+          }));
+        } catch (error) {
+          console.warn(`Failed to export ${collectionName}:`, error);
+          allData[collectionName] = [];
+        }
+      }
+      
+      const jsonData = JSON.stringify(allData, null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mypackaging-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      showSuccess('Data exported successfully!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      showError('Failed to export data. Please try again.');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const scheduleBackup = () => {
+    showSuccess('Automatic backup scheduling will be available in a future update. For now, please use manual export.');
   };
 
   useEffect(() => {
@@ -137,7 +347,10 @@ const Settings = () => {
             )}
             
             {activeTab === 'system' && (userRole === 'admin' || userRole === 'manager') && (
-              <SystemSettings />
+              <SystemSettings 
+                onExportData={exportAllData}
+                onScheduleBackup={scheduleBackup}
+              />
             )}
             
             {activeTab === 'operational' && (userRole === 'admin' || userRole === 'manager') && (
@@ -157,11 +370,130 @@ const Settings = () => {
             )}
             
             {activeTab === 'security' && userRole === 'admin' && (
-              <SecuritySettings />
+              <SecuritySettings 
+                onViewAuditLogs={handleViewAuditLogs}
+                onExportAuditLogs={exportAuditLogs}
+              />
             )}
           </div>
         </div>
       </main>
+
+      {/* Audit Logs Modal */}
+      {showAuditLogs && (
+        <div className="modal-overlay" onClick={() => setShowAuditLogs(false)}>
+          <div className="modal-content audit-logs-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🔍 Audit Trail</h3>
+              <button className="close-btn" onClick={() => setShowAuditLogs(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {loadingAuditLogs ? (
+                <div className="loading">Loading audit logs...</div>
+              ) : (
+                <div className="audit-logs-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Category</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" style={{textAlign: 'center', padding: '20px'}}>
+                            No audit logs found
+                          </td>
+                        </tr>
+                      ) : (
+                        auditLogs.map((log, index) => (
+                          <tr key={index}>
+                            <td>{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</td>
+                            <td>{log.userEmail || 'System'}</td>
+                            <td>{log.action || 'N/A'}</td>
+                            <td>{log.category || 'N/A'}</td>
+                            <td>{log.details || 'N/A'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={exportAuditLogs}>
+                📤 Export to CSV
+              </button>
+              {user?.email === 'admin@mypackaging.com' && (
+                <button className="btn btn-danger" onClick={handleDeleteAuditLogs}>
+                  🗑️ Delete All Logs
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={() => setShowAuditLogs(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirmation(false)}>
+          <div className="modal-content delete-confirmation-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>⚠️ Delete All Audit Logs</h3>
+              <button className="close-btn" onClick={() => setShowDeleteConfirmation(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="warning-message">
+                <p><strong>⚠️ WARNING:</strong> This action will permanently delete ALL audit logs and cannot be undone.</p>
+                <p>Only the admin account can perform this action. Please enter your password to confirm:</p>
+              </div>
+              <form onSubmit={confirmDeleteAuditLogs} className="delete-form">
+                <div className="form-group">
+                  <label htmlFor="adminPassword">Admin Password:</label>
+                  <input
+                    type="password"
+                    id="adminPassword"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    autoComplete="current-password"
+                    disabled={deletingLogs}
+                  />
+                </div>
+                <div className="form-actions">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowDeleteConfirmation(false);
+                      setAdminPassword('');
+                    }}
+                    disabled={deletingLogs}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-danger"
+                    disabled={deletingLogs}
+                  >
+                    {deletingLogs ? 'Deleting...' : 'Delete All Logs'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -229,58 +561,297 @@ const ProfileSettings = ({ user }) => {
   );
 };
 
-const SystemSettings = () => (
-  <div className="settings-section">
-    <h2>System Configuration</h2>
-    
-    <div className="settings-group">
-      <h3>Business Information</h3>
-      <div className="form-group">
-        <label>Shop Name:</label>
-        <input type="text" defaultValue="MyPackaging by Belle Store" className="form-control" />
-      </div>
-      <div className="form-group">
-        <label>Address:</label>
-        <textarea className="form-control" rows="3" placeholder="Enter shop address"></textarea>
-      </div>
-      <div className="form-group">
-        <label>Contact Number:</label>
-        <input type="tel" className="form-control" placeholder="+60 12-345 6789" />
-      </div>
-    </div>
+const SystemSettings = ({ onExportData, onScheduleBackup }) => {
+  const { showSuccess, showError } = useAlert();
+  const [businessInfo, setBusinessInfo] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-    <div className="settings-group">
-      <h3>Regional Settings</h3>
-      <div className="form-group">
-        <label>Currency:</label>
-        <select className="form-control">
-          <option value="MYR">Malaysian Ringgit (RM)</option>
-          <option value="USD">US Dollar ($)</option>
-          <option value="SGD">Singapore Dollar (S$)</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Tax Rate (%):</label>
-        <input type="number" step="0.01" defaultValue="6.00" className="form-control" />
-      </div>
-      <div className="form-group">
-        <label>Date Format:</label>
-        <select className="form-control">
-          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-        </select>
-      </div>
-    </div>
+  // Load business information
+  const loadBusinessInfo = useCallback(async () => {
+    try {
+      setLoading(true);
+      const info = await businessInfoService.getBusinessInfo();
+      setBusinessInfo(info);
+    } catch (error) {
+      console.error('Error loading business info:', error);
+      showError('Failed to load business information');
+    } finally {
+      setLoading(false);
+    }
+  }, [showError]);
 
-    <div className="settings-group">
-      <h3>Backup & Recovery</h3>
-      <button className="btn btn-primary">Export Data</button>
-      <button className="btn btn-secondary">Schedule Backup</button>
-      <p className="note">Last backup: Never</p>
+  useEffect(() => {
+    loadBusinessInfo();
+  }, [loadBusinessInfo]);
+
+  const handleInputChange = (field, value) => {
+    setBusinessInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      console.log('Saving business info:', businessInfo);
+      
+      // Validate required fields
+      if (!businessInfo.shopName || businessInfo.shopName.trim() === '') {
+        showError('Shop name is required');
+        return;
+      }
+      
+      if (!businessInfo.email || businessInfo.email.trim() === '') {
+        showError('Email is required');
+        return;
+      }
+      
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(businessInfo.email)) {
+        showError('Please enter a valid email address');
+        return;
+      }
+      
+      await businessInfoService.updateBusinessInfo(businessInfo);
+      showSuccess('Business information updated successfully!');
+      setIsEditing(false);
+      
+      // Reload to confirm the save
+      await loadBusinessInfo();
+      
+    } catch (error) {
+      console.error('Error saving business info:', error);
+      showError(error.message || 'Failed to save business information. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    loadBusinessInfo(); // Reload original data
+  };
+
+  if (loading) {
+    return (
+      <div className="settings-section">
+        <div className="loading-state">Loading business information...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h2>System Configuration</h2>
+        <div className="header-actions">
+          {!isEditing ? (
+            <button 
+              className="btn btn-primary"
+              onClick={() => setIsEditing(true)}
+            >
+              ✏️ Edit Business Info
+            </button>
+          ) : (
+            <div className="edit-actions">
+              <button 
+                className="btn btn-success"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : '💾 Save Changes'}
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                ❌ Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="settings-group">
+        <h3>Business Information</h3>
+        <div className="business-info-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label>Shop Name: *</label>
+              {isEditing ? (
+                <input 
+                  type="text" 
+                  value={businessInfo.shopName || ''} 
+                  onChange={(e) => handleInputChange('shopName', e.target.value)}
+                  className="form-control"
+                  placeholder="Enter shop name"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.shopName || 'Not set'}</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Tagline:</label>
+              {isEditing ? (
+                <input 
+                  type="text" 
+                  value={businessInfo.tagline || ''} 
+                  onChange={(e) => handleInputChange('tagline', e.target.value)}
+                  className="form-control"
+                  placeholder="Your business tagline"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.tagline || 'Not set'}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Business Address: *</label>
+            {isEditing ? (
+              <textarea 
+                value={businessInfo.address || ''} 
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                className="form-control" 
+                rows="3" 
+                placeholder="Enter complete business address&#10;Line 1&#10;Line 2&#10;City, Postal Code"
+              />
+            ) : (
+              <div className="form-display address-display">
+                {businessInfo.address ? 
+                  businessInfo.address.split('\n').map((line, index) => (
+                    <div key={index}>{line}</div>
+                  )) : 'Not set'
+                }
+              </div>
+            )}
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Contact Number: *</label>
+              {isEditing ? (
+                <input 
+                  type="tel" 
+                  value={businessInfo.phone || ''} 
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className="form-control" 
+                  placeholder="+60 3-1234 5678"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.phone || 'Not set'}</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Email Address: *</label>
+              {isEditing ? (
+                <input 
+                  type="email" 
+                  value={businessInfo.email || ''} 
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="form-control" 
+                  placeholder="info@yourbusiness.com"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.email || 'Not set'}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Business Registration Number:</label>
+              {isEditing ? (
+                <input 
+                  type="text" 
+                  value={businessInfo.registrationNumber || ''} 
+                  onChange={(e) => handleInputChange('registrationNumber', e.target.value)}
+                  className="form-control" 
+                  placeholder="SSM-1234567890"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.registrationNumber || 'Not set'}</div>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Website:</label>
+              {isEditing ? (
+                <input 
+                  type="url" 
+                  value={businessInfo.website || ''} 
+                  onChange={(e) => handleInputChange('website', e.target.value)}
+                  className="form-control" 
+                  placeholder="www.yourbusiness.com"
+                />
+              ) : (
+                <div className="form-display">{businessInfo.website || 'Not set'}</div>
+              )}
+            </div>
+          </div>
+
+          {!isEditing && (
+            <div className="info-note">
+              <p><strong>Note:</strong> This information will be used in receipts, emails, and other business documents.</p>
+              <p><small>Last updated: {businessInfo.updatedAt ? new Date(businessInfo.updatedAt.seconds * 1000).toLocaleString() : 'Never'}</small></p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h3>Regional Settings</h3>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Currency:</label>
+            {isEditing ? (
+              <select 
+                value={businessInfo.currency || 'MYR'} 
+                onChange={(e) => handleInputChange('currency', e.target.value)}
+                className="form-control"
+              >
+                <option value="MYR">Malaysian Ringgit (RM)</option>
+                <option value="USD">US Dollar ($)</option>
+                <option value="SGD">Singapore Dollar (S$)</option>
+              </select>
+            ) : (
+              <div className="form-display">{businessInfo.currency || 'MYR'} - Malaysian Ringgit (RM)</div>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Tax Rate (%):</label>
+            {isEditing ? (
+              <input 
+                type="number" 
+                step="0.01" 
+                value={businessInfo.taxRate || 6.00} 
+                onChange={(e) => handleInputChange('taxRate', parseFloat(e.target.value))}
+                className="form-control"
+                min="0"
+                max="100"
+              />
+            ) : (
+              <div className="form-display">{businessInfo.taxRate || 6.00}%</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h3>Backup & Recovery</h3>
+        <div className="backup-actions">
+          <button className="btn btn-primary" onClick={onExportData}>📤 Export Data</button>
+          <button className="btn btn-secondary" onClick={onScheduleBackup}>⏰ Schedule Backup</button>
+        </div>
+        <p className="note">Last backup: Never</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const OperationalSettings = () => (
   <div className="settings-section">
@@ -468,7 +1039,7 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
   );
 };
 
-const SecuritySettings = () => (
+const SecuritySettings = ({ onViewAuditLogs, onExportAuditLogs }) => (
   <div className="settings-section">
     <h2>Security & Compliance</h2>
     
@@ -492,8 +1063,8 @@ const SecuritySettings = () => (
           Log data changes
         </label>
       </div>
-      <button className="btn btn-secondary">View Audit Logs</button>
-      <button className="btn btn-secondary">Export Audit Report</button>
+      <button className="btn btn-secondary" onClick={onViewAuditLogs}>View Audit Logs</button>
+      <button className="btn btn-secondary" onClick={onExportAuditLogs}>Export Audit Report</button>
     </div>
 
     <div className="settings-group">

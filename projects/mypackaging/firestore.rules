@@ -58,6 +58,14 @@ service cloud.firestore {
         allow update: if isManagerOrAdmin();
         allow delete: if isAdmin();
       }
+      
+      // Payments subcollection (for hutang payment tracking)
+      match /payments/{paymentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isManagerOrAdmin();
+        allow delete: if isAdmin();
+      }
     }
     
     // Purchases collection
@@ -99,9 +107,11 @@ service cloud.firestore {
     
     // Audit logs collection
     // Admin: full access | Manager: read only | Staff: no access
+    // All authenticated users can create audit logs for tracking actions
     match /auditLogs/{logId} {
       allow read: if isManagerOrAdmin();
-      allow write: if isAdmin();
+      allow create: if isAuthenticated(); // All users can create audit logs
+      allow update, delete: if isAdmin();
     }
     
     // Reports collection (if you store report configurations)
@@ -169,6 +179,22 @@ service cloud.firestore {
     match /passwordResetRequests/{requestId} {
       allow create: if true;  // Allow anyone to create password reset requests
       allow read, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Business information collection
+    // Admin: full access | Manager: read/write | Staff: read only
+    match /businessInfo/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isManagerOrAdmin();
+    }
+
+    // Payments collection (for hutang payments tracking)
+    // Admin: full access | Manager: view, create, edit | Staff: view, create
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isManagerOrAdmin();
       allow delete: if isAdmin();
     }
 

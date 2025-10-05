@@ -12,7 +12,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
+import { logActivity } from '../lib/auditLog';
 import '../styles/Hutang.css';
 
 function Hutang() {
@@ -29,12 +31,16 @@ function Hutang() {
   const [error, setError] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
-  const [creditLimits] = useState({});
+  const [creditLimits, setCreditLimits] = useState({});
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
+  const [selectedCustomerForLimit, setSelectedCustomerForLimit] = useState('');
+  const [newCreditLimit, setNewCreditLimit] = useState('');
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
 
   // Subscribe to credit sales (Hutang sales)
   useEffect(() => {
@@ -188,12 +194,21 @@ function Hutang() {
         });
       });
 
+      // Log the payment activity for audit trail
+      await logActivity(
+        'Payment Recorded',
+        user.email,
+        `Recorded payment of RM ${amount.toFixed(2)} from ${selectedSale.customerName} via ${paymentMethod}. Sale ID: ${selectedSale.id.substring(0, 8)}. Remaining balance: RM ${(remaining - amount).toFixed(2)}`,
+        'payments'
+      );
+
       // Reset form
       setShowPaymentModal(false);
       setSelectedSale(null);
       setPaymentAmount('');
       setPaymentMethod('cash');
       
+      showSuccess(`Payment of RM ${amount.toFixed(2)} recorded successfully`);
       console.log('Payment recorded successfully for customer:', selectedSale.customerName);
       
       // If payment history modal is open for this customer, refresh it
@@ -275,6 +290,47 @@ function Hutang() {
     setSelectedCustomer(customerName);
     setShowCustomerModal(true);
     await fetchPaymentHistory(customerName);
+  };
+
+  // Handle set credit limit
+  const handleSetCreditLimit = (customerName) => {
+    setSelectedCustomerForLimit(customerName);
+    setNewCreditLimit(creditLimits[customerName]?.toString() || '');
+    setShowCreditLimitModal(true);
+  };
+
+  // Handle save credit limit
+  const handleSaveCreditLimit = async (e) => {
+    e.preventDefault();
+    try {
+      const limit = parseFloat(newCreditLimit);
+      if (isNaN(limit) || limit < 0) {
+        showError('Please enter a valid credit limit amount');
+        return;
+      }
+
+      // Update local state
+      setCreditLimits(prev => ({
+        ...prev,
+        [selectedCustomerForLimit]: limit
+      }));
+
+      // Log activity
+      await logActivity(
+        'Credit Limit Updated',
+        user.email,
+        `Set credit limit for ${selectedCustomerForLimit} to RM ${limit.toFixed(2)}`,
+        'credit_management'
+      );
+
+      showSuccess(`Credit limit set to RM ${limit.toFixed(2)} for ${selectedCustomerForLimit}`);
+      setShowCreditLimitModal(false);
+      setNewCreditLimit('');
+      setSelectedCustomerForLimit('');
+    } catch (error) {
+      console.error('Error setting credit limit:', error);
+      showError('Failed to set credit limit. Please try again.');
+    }
   };
 
   const stats = calculateStats();
@@ -457,10 +513,7 @@ function Hutang() {
                   <h3>{customer.name}</h3>
                   <div className="customer-actions">
                     <button
-                      onClick={() => {
-                        setSelectedCustomer(customer.name);
-                        setShowCustomerModal(true);
-                      }}
+                      onClick={() => handleSetCreditLimit(customer.name)}
                       className="btn-set-limit"
                     >
                       Set Limit
@@ -638,6 +691,63 @@ function Hutang() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credit Limit Modal */}
+      {showCreditLimitModal && (
+        <div className="modal-overlay">
+          <div className="credit-limit-modal">
+            <div className="modal-header">
+              <h3>Set Credit Limit - {selectedCustomerForLimit}</h3>
+              <button 
+                onClick={() => {
+                  setShowCreditLimitModal(false);
+                  setNewCreditLimit('');
+                  setSelectedCustomerForLimit('');
+                }}
+                className="modal-close"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveCreditLimit} className="credit-limit-form">
+              <div className="form-group">
+                <label>Credit Limit (RM):</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newCreditLimit}
+                  onChange={(e) => setNewCreditLimit(e.target.value)}
+                  placeholder="Enter credit limit amount"
+                  required
+                  autoFocus
+                />
+                <small className="form-help">
+                  Set to 0 to remove credit limit for this customer
+                </small>
+              </div>
+              
+              <div className="form-actions">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setShowCreditLimitModal(false);
+                    setNewCreditLimit('');
+                    setSelectedCustomerForLimit('');
+                  }} 
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Set Credit Limit
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

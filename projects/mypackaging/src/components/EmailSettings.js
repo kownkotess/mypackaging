@@ -48,6 +48,22 @@ const EmailSettings = () => {
     }
   };
 
+  const handleQuickSetup = () => {
+    // Pre-populate with your configuration
+    setConfig({
+      serviceId: 'service_wfhhdfl',
+      publicKey: 'kTKZY50pqsnbX5UBq',
+      templateIds: {
+        stockAlert: 'template_stock_alert',
+        receipt: 'template_receipt',
+        passwordReset: 'template_password_reset',
+        lowStock: 'template_low_stock',
+        salesReport: 'template_sales_report'
+      }
+    });
+    showSuccess('Configuration pre-populated! Click Save Configuration to apply.');
+  };
+
   const handleSaveConfiguration = async () => {
     setIsLoading(true);
     try {
@@ -80,19 +96,18 @@ const EmailSettings = () => {
 
     setIsTestingEmail(true);
     try {
-      const success = await emailService.testEmailService();
-      if (success) {
-        showSuccess(`Test email sent successfully to ${testEmail}`);
-      } else {
-        showError('Test email failed. Check your configuration.');
-      }
+      console.log('Starting email test to:', testEmail);
+      await emailService.testEmailService(testEmail);
+      showSuccess(`Test email sent successfully to ${testEmail}! Check your inbox.`);
     } catch (error) {
-      showError('Test email failed: ' + error.message);
       console.error('Test email error:', error);
+      showError('Test email failed: ' + error.message);
     } finally {
       setIsTestingEmail(false);
     }
   };
+
+
 
   const handleSendStockAlert = async () => {
     try {
@@ -141,6 +156,15 @@ const EmailSettings = () => {
       <div className="settings-header">
         <h2>📧 Email Service Configuration</h2>
         <p>Configure EmailJS settings for automated notifications and receipts</p>
+        <div className="header-actions">
+          <button 
+            className="btn btn-info"
+            onClick={handleQuickSetup}
+            title="Pre-populate with your configuration"
+          >
+            ⚡ Quick Setup
+          </button>
+        </div>
       </div>
 
       {/* Configuration Status */}
@@ -290,7 +314,7 @@ const EmailSettings = () => {
               onClick={handleTestEmail}
               disabled={isTestingEmail || !testEmail}
             >
-              {isTestingEmail ? 'Testing...' : 'Test Email Service'}
+              {isTestingEmail ? 'Testing...' : '🧪 Test Email Service'}
             </button>
 
             <button 
@@ -298,7 +322,7 @@ const EmailSettings = () => {
               onClick={handleSendStockAlert}
               disabled={!config.serviceId}
             >
-              Send Test Stock Alert
+              📊 Send Test Stock Alert
             </button>
 
             <button 
@@ -306,8 +330,14 @@ const EmailSettings = () => {
               onClick={handleSendTestReceipt}
               disabled={!config.serviceId || !testEmail}
             >
-              Send Test Receipt
+              🧾 Send Test Receipt
             </button>
+          </div>
+
+          <div className="email-note">
+            <p><strong>📎 PDF Attachments:</strong> EmailJS free plan doesn't support dynamic attachments. 
+            When you send receipt emails, the PDF will be automatically downloaded to your computer 
+            for manual sharing via WhatsApp or other methods.</p>
           </div>
         </div>
       </div>

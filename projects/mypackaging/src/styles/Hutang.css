@@ -486,6 +486,90 @@
   overflow-y: auto;
 }
 
+.payment-modal .modal-header h3 {
+  color: #FBB040;
+}
+
+.credit-limit-modal .modal-header h3 {
+  color: #FBB040;
+}
+
+.credit-limit-form {
+  padding: 0;
+}
+
+.credit-limit-form .form-group {
+  margin-bottom: 20px;
+}
+
+.credit-limit-form .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.credit-limit-form .form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.credit-limit-form .form-group input:focus {
+  outline: none;
+  border-color: #FBB040;
+  box-shadow: 0 0 0 3px rgba(251, 176, 64, 0.1);
+}
+
+.credit-limit-form .form-help {
+  display: block;
+  margin-top: 5px;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.credit-limit-form .form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.credit-limit-form .btn-primary {
+  background: #FBB040;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.credit-limit-form .btn-primary:hover {
+  background: #e09a2e;
+}
+
+.credit-limit-form .btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.credit-limit-form .btn-secondary:hover {
+  background: #5a6268;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -629,6 +713,10 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.payment-history-modal .modal-header h3 {
+  color: #FBB040;
 }
 
 .customer-summary {

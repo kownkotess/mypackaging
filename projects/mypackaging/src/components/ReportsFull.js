@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
+import { logActivity } from '../lib/auditLog';
 import { 
   collection, 
   query, 
@@ -30,12 +32,15 @@ import {
 import { format, subDays, isToday, getHours } from 'date-fns';
 import { db } from '../firebase';
 import '../styles/Reports.css';
+import receiptService from '../services/receiptService';
+import emailService from '../services/emailService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 
 const Reports = () => {
   const { showSuccess, showError, showConfirm } = useAlert();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('financial');
   const [dateRange, setDateRange] = useState('month');
@@ -559,10 +564,11 @@ const Reports = () => {
       `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\n\nThis action cannot be undone.`,
       async () => {
         try {
+          let productUpdates = [];
+          
           // Run transaction to delete sale and restore stock
           await runTransaction(db, async (transaction) => {
             // Get current product data to update stock
-        const productUpdates = [];
         
         // Check if products exist before processing
         if (sale.products && Array.isArray(sale.products)) {
@@ -594,6 +600,14 @@ const Reports = () => {
         console.log('Sale deleted and stock restored:', productUpdates);
       });
 
+      // Log the sale deletion activity
+      await logActivity(
+        'Sale Deleted',
+        user.email,
+        `Deleted sale for ${sale.customerName} worth RM ${(sale.total || 0).toFixed(2)}. Sale ID: ${sale.id.substring(0, 8)}. Stock restored for ${productUpdates.length} products.`,
+        'sales'
+      );
+
       showSuccess('Sale deleted successfully! Stock has been restored for all products.');
       
     } catch (error) {
@@ -602,6 +616,39 @@ const Reports = () => {
     }
       }
     );
+  };
+
+  const handleGenerateReceipt = async (sale) => {
+    try {
+      const receiptNumber = receiptService.generateReceiptNumber(sale.id);
+      await receiptService.downloadReceipt(sale, receiptNumber);
+      showSuccess('Receipt downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      showError('Failed to generate receipt. Please try again.');
+    }
+  };
+
+  const handleEmailReceipt = async (sale) => {
+    const email = prompt('Enter customer email address:');
+    if (!email || !emailService.isValidEmail(email)) {
+      showError('Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      const receiptNumber = receiptService.generateReceiptNumber(sale.id);
+      const enhancedSaleData = {
+        ...sale,
+        receiptNumber
+      };
+      
+      await emailService.sendReceiptEmailAndDownloadPDF(enhancedSaleData, email);
+      showSuccess(`Receipt sent successfully to ${email}!`);
+    } catch (error) {
+      console.error('Error sending receipt:', error);
+      showError('Failed to send receipt. Please try again.');
+    }
   };
 
   if (loading) {
@@ -1067,13 +1114,29 @@ const Reports = () => {
                               </span>
                             </td>
                             <td>
-                              <button
-                                onClick={() => handleDeleteSale(sale)}
-                                className="btn-delete-sale"
-                                title="Delete sale and restore stock"
-                              >
-                                🗑️ Delete
-                              </button>
+                              <div className="action-buttons">
+                                <button
+                                  onClick={() => handleGenerateReceipt(sale)}
+                                  className="btn-receipt"
+                                  title="Download PDF Receipt"
+                                >
+                                  📄 Receipt
+                                </button>
+                                <button
+                                  onClick={() => handleEmailReceipt(sale)}
+                                  className="btn-email"
+                                  title="Email Receipt"
+                                >
+                                  📧 Email
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSale(sale)}
+                                  className="btn-delete-sale"
+                                  title="Delete sale and restore stock"
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

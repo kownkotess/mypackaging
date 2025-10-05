@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { addProduct, updateProduct } from '../lib/firestore';
+import { useAuth } from '../context/AuthContextWrapper';
+import { logActivity } from '../lib/auditLog';
 import './ProductForm.css';
 
 const ProductForm = ({ product, onClose }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     unitPrice: '',
@@ -66,10 +69,38 @@ const ProductForm = ({ product, onClose }) => {
       if (product) {
         // Editing existing product
         await updateProduct(product.id, productData);
+        
+        // Log the update
+        await logActivity(
+          'product_updated',
+          user?.email || 'unknown_user',
+          `Product "${productData.name}" was updated`,
+          'action',
+          {
+            productId: product.id,
+            productName: productData.name,
+            changes: productData,
+            updatedBy: user?.email
+          }
+        );
       } else {
         // Adding new product
         productData.startingStock = Number(formData.startingStock) || 0;
-        await addProduct(productData);
+        const newProductId = await addProduct(productData);
+        
+        // Log the creation
+        await logActivity(
+          'product_created',
+          user?.email || 'unknown_user',
+          `Product "${productData.name}" was created`,
+          'action',
+          {
+            productId: newProductId,
+            productName: productData.name,
+            productData: productData,
+            createdBy: user?.email
+          }
+        );
       }
 
       onClose();

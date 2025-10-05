@@ -265,6 +265,55 @@
   border-color: #004D24;
 }
 
+/* Discount Pricing Section */
+.discount-prices {
+  margin: 20px 0;
+  padding: 15px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+}
+
+.discount-prices h5 {
+  margin: 0 0 15px 0;
+  color: #856404;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.discount-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.discount-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+  color: #666;
+  font-weight: 600;
+}
+
+.discount-group input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+}
+
+.discount-group input:focus {
+  outline: none;
+  border-color: #f39c12;
+}
+
+.discount-group input:not(:placeholder-shown) {
+  background: #e8f5e8;
+  border-color: #28a745;
+}
+
 .item-total {
   text-align: right;
   color: #28a745;
@@ -332,6 +381,14 @@
   color: #555;
 }
 
+.form-help {
+  display: block;
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-top: 5px;
+  font-style: italic;
+}
+
 .form-group input,
 .form-group select {
   width: 100%;
@@ -397,4 +454,17 @@
     padding: 12px 24px;
     font-size: 14px;
   }
+}
+
+/* Email configuration note */
+.email-config-note {
+  color: #856404;
+  background: #fff3cd;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #ffeaa7;
+  display: block;
+  margin-top: 5px;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }

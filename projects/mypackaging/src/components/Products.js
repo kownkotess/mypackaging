@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { subscribeProducts, deleteProduct } from '../lib/firestore';
 import { useAlert } from '../context/AlertContext';
+import { useAuth } from '../context/AuthContextWrapper';
 import { RequirePermission } from './RoleComponents';
+import { logActivity } from '../lib/auditLog';
 import ProductForm from './ProductForm';
 import './Products.css';
 
 const Products = () => {
   const { showConfirm } = useAlert();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -40,6 +43,20 @@ const Products = () => {
       async () => {
         try {
           await deleteProduct(productId);
+          
+          // Log the deletion
+          await logActivity(
+            'product_deleted',
+            user?.email || 'unknown_user',
+            `Product "${productName}" was deleted`,
+            'action',
+            {
+              productId,
+              productName,
+              deletedBy: user?.email
+            }
+          );
+          
           setError('');
         } catch (error) {
           console.error('Error deleting product:', error);

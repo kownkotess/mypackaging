@@ -49,7 +49,7 @@ export const AuthWrapperProvider = ({ children }) => {
     },
     staff: {
       sales: ['view', 'create'],
-      hutang: ['view']
+      hutang: ['view', 'edit']
     }
   };
 

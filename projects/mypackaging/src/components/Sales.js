@@ -4,7 +4,9 @@ import { getProducts, createSale } from '../lib/firestore';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
-import emailService from '../services/emailService';
+import receiptService from '../services/receiptService';
+import ReceiptModal from './ReceiptModal';
+import { logActivity } from '../lib/auditLog';
 import './Sales.css';
 
 const Sales = () => {
@@ -18,9 +20,12 @@ const Sales = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [deduction, setDeduction] = useState('');
+  const [saleDate, setSaleDate] = useState(''); // Optional date for backdating
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [completedSale, setCompletedSale] = useState(null);
+  const [receiptNumber, setReceiptNumber] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -57,6 +62,9 @@ const Sales = () => {
       qtyBox: 0,
       qtyPack: 0,
       qtyLoose: 0,
+      discountBoxPrice: '',
+      discountPackPrice: '',
+      discountUnitPrice: '',
       subtotal: 0
     };
 
@@ -72,21 +80,64 @@ const Sales = () => {
     const item = updatedProducts[index];
     let subtotal = 0;
     
-    // Calculate box subtotal (use boxPrice if available, otherwise unit price)
+    // Calculate box subtotal (use discount price if available, then boxPrice, otherwise unit price)
     if (item.qtyBox > 0) {
-      const boxPrice = item.boxPrice || (item.unitPrice * item.bigBulkQty);
+      const boxPrice = item.discountBoxPrice ? 
+        Number(item.discountBoxPrice) : 
+        (item.boxPrice || (item.unitPrice * item.bigBulkQty));
       subtotal += item.qtyBox * boxPrice;
     }
     
-    // Calculate pack subtotal (use packPrice if available, otherwise unit price)
+    // Calculate pack subtotal (use discount price if available, then packPrice, otherwise unit price)
     if (item.qtyPack > 0) {
-      const packPrice = item.packPrice || (item.unitPrice * item.smallBulkQty);
+      const packPrice = item.discountPackPrice ? 
+        Number(item.discountPackPrice) : 
+        (item.packPrice || (item.unitPrice * item.smallBulkQty));
       subtotal += item.qtyPack * packPrice;
     }
     
-    // Calculate loose units subtotal (always use unit price)
+    // Calculate loose units subtotal (use discount price if available, otherwise unit price)
     if (item.qtyLoose > 0) {
-      subtotal += item.qtyLoose * item.unitPrice;
+      const unitPrice = item.discountUnitPrice ? 
+        Number(item.discountUnitPrice) : 
+        item.unitPrice;
+      subtotal += item.qtyLoose * unitPrice;
+    }
+    
+    item.subtotal = subtotal;
+    setSelectedProducts(updatedProducts);
+  };
+
+  const updateDiscountPrice = (index, field, value) => {
+    const updatedProducts = [...selectedProducts];
+    updatedProducts[index][field] = value;
+    
+    // Recalculate subtotal with new discount price
+    const item = updatedProducts[index];
+    let subtotal = 0;
+    
+    // Calculate box subtotal (use discount price if available, then boxPrice, otherwise unit price)
+    if (item.qtyBox > 0) {
+      const boxPrice = item.discountBoxPrice ? 
+        Number(item.discountBoxPrice) : 
+        (item.boxPrice || (item.unitPrice * item.bigBulkQty));
+      subtotal += item.qtyBox * boxPrice;
+    }
+    
+    // Calculate pack subtotal (use discount price if available, then packPrice, otherwise unit price)
+    if (item.qtyPack > 0) {
+      const packPrice = item.discountPackPrice ? 
+        Number(item.discountPackPrice) : 
+        (item.packPrice || (item.unitPrice * item.smallBulkQty));
+      subtotal += item.qtyPack * packPrice;
+    }
+    
+    // Calculate loose units subtotal (use discount price if available, otherwise unit price)
+    if (item.qtyLoose > 0) {
+      const unitPrice = item.discountUnitPrice ? 
+        Number(item.discountUnitPrice) : 
+        item.unitPrice;
+      subtotal += item.qtyLoose * unitPrice;
     }
     
     item.subtotal = subtotal;
@@ -186,6 +237,7 @@ const Sales = () => {
         remaining,
         status: remaining > 0 ? 'Hutang' : 'Paid',
         customerName: customerName.trim() || 'Walk In',
+        customDate: saleDate || null, // Add custom date if provided
         createdBy: user?.email || 'Unknown',
         items: selectedProducts.map(item => ({
           productId: item.productId,
@@ -200,25 +252,45 @@ const Sales = () => {
 
       await createSale(saleData);
 
-      // Send email receipt if customer email is provided
-      if (customerEmail && emailService.isValidEmail(customerEmail)) {
-        try {
-          await emailService.sendSalesReceipt(saleData, customerEmail);
-          showSuccess('Sale recorded successfully! Receipt sent to ' + customerEmail);
-        } catch (emailError) {
-          console.error('Failed to send receipt email:', emailError);
-          showSuccess('Sale recorded successfully! (Note: Failed to send email receipt)');
+      // Log the sale activity
+      await logActivity(
+        'sale_created',
+        user.email || 'unknown_user',
+        `Sale created for ${customerName || 'Walk In'} - Total: RM${total.toFixed(2)} (${paymentMethod}). Status: ${remaining > 0 ? 'Credit' : 'Paid'}`,
+        'action',
+        {
+          customerName: customerName || 'Walk In',
+          total: total,
+          paymentType: paymentMethod,
+          itemCount: selectedProducts.length,
+          status: remaining > 0 ? 'Hutang' : 'Paid',
+          paidAmount: paid,
+          remaining: remaining
         }
-      } else {
-        showSuccess('Sale recorded successfully!');
-      }
+      );
+
+      // Generate receipt number and prepare receipt data
+      const generatedReceiptNumber = receiptService.generateReceiptNumber(saleData.id || 'temp');
+      const receiptData = {
+        ...saleData,
+        receiptNumber: generatedReceiptNumber,
+        id: saleData.id || 'temp-' + Date.now()
+      };
+
+      // Show receipt modal for user actions
+      setCompletedSale(receiptData);
+      setReceiptNumber(generatedReceiptNumber);
+      setShowReceiptModal(true);
+
+      // Show receipt modal for WhatsApp sharing
+      showSuccess('Sale recorded successfully! Use the receipt modal to share via WhatsApp.');
 
       // Reset form
       setSelectedProducts([]);
       setCustomerName('');
-      setCustomerEmail('');
       setPaidAmount('');
       setDeduction('');
+      setSaleDate(''); // Reset sale date
       setPaymentMethod('cash');
       
       // Reload products to get updated stock
@@ -346,6 +418,45 @@ const Sales = () => {
                       </div>
                     </div>
                     
+                    <div className="discount-prices">
+                      <h5>🏷️ Discount Prices (Optional)</h5>
+                      <div className="discount-inputs">
+                        <div className="discount-group">
+                          <label>Box Price (RM{(item.boxPrice || (item.unitPrice * item.bigBulkQty)).toFixed(2)})</label>
+                          <input
+                            type="number"
+                            value={item.discountBoxPrice}
+                            onChange={(e) => updateDiscountPrice(index, 'discountBoxPrice', e.target.value)}
+                            placeholder={(item.boxPrice || (item.unitPrice * item.bigBulkQty)).toFixed(2)}
+                            step="0.01"
+                            min="0"
+                          />
+                        </div>
+                        <div className="discount-group">
+                          <label>Pack Price (RM{(item.packPrice || (item.unitPrice * item.smallBulkQty)).toFixed(2)})</label>
+                          <input
+                            type="number"
+                            value={item.discountPackPrice}
+                            onChange={(e) => updateDiscountPrice(index, 'discountPackPrice', e.target.value)}
+                            placeholder={(item.packPrice || (item.unitPrice * item.smallBulkQty)).toFixed(2)}
+                            step="0.01"
+                            min="0"
+                          />
+                        </div>
+                        <div className="discount-group">
+                          <label>Unit Price (RM{item.unitPrice.toFixed(2)})</label>
+                          <input
+                            type="number"
+                            value={item.discountUnitPrice}
+                            onChange={(e) => updateDiscountPrice(index, 'discountUnitPrice', e.target.value)}
+                            placeholder={item.unitPrice.toFixed(2)}
+                            step="0.01"
+                            min="0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div className="item-total">
                       <strong>Subtotal: RM{item.subtotal.toFixed(2)}</strong>
                     </div>
@@ -392,15 +503,17 @@ const Sales = () => {
                   </div>
 
                   <div className="form-group">
-                    <label>Customer Email (Optional - for receipt)</label>
+                    <label>Sale Date (Optional)</label>
                     <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="customer@example.com"
+                      type="date"
+                      value={saleDate}
+                      onChange={(e) => setSaleDate(e.target.value)}
+                      placeholder="Leave empty for current date"
                     />
-                    <small>Email receipt will be sent automatically if provided</small>
+                    <small className="form-help">Leave empty to use current date</small>
                   </div>
+
+
 
                   <div className="form-group">
                     <label>Payment Method</label>
@@ -449,6 +562,14 @@ const Sales = () => {
           )}
         </div>
       </div>
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        isOpen={showReceiptModal}
+        onClose={() => setShowReceiptModal(false)}
+        saleData={completedSale}
+        receiptNumber={receiptNumber}
+      />
     </div>
   );
 };
