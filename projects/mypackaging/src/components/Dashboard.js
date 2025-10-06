@@ -55,11 +55,39 @@ const Dashboard = () => {
               {userRole === 'admin' && 'Full system access with user management capabilities'}
               {userRole === 'manager' && 'Manage inventory, sales, and view reports'}
               {userRole === 'staff' && 'Create sales and view basic information'}
+              {userRole === 'outsider' && '⚠️ Limited access - Contact admin@mypackaging.com for role upgrade'}
             </div>
           </div>
         </div>
 
-        <div className="dashboard-grid">
+        {/* Outsider Welcome Message */}
+        {userRole === 'outsider' && (
+          <div className="outsider-welcome">
+            <div className="welcome-card">
+              <h2>🔐 Welcome to MyPackaging System</h2>
+              <p>Your account has been created successfully, but you currently have limited access.</p>
+              <div className="access-info">
+                <h3>Current Access Level: <span className="role-badge outsider">Outsider</span></h3>
+                <ul>
+                  <li>✅ View this dashboard</li>
+                  <li>✅ Change your password</li>
+                  <li>❌ Access business operations (Sales, Inventory, etc.)</li>
+                </ul>
+              </div>
+              <div className="upgrade-info">
+                <h3>Need More Access?</h3>
+                <p>Contact your system administrator to upgrade your role:</p>
+                <div className="contact-info">
+                  <strong>📧 admin@mypackaging.com</strong>
+                </div>
+                <p><small>Please provide your email address ({user?.email}) when requesting access.</small></p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="dashboard-grid">{userRole !== 'outsider' && (
+          <>
           {/* Products - All roles can view, manager+ can edit */}
           <CanAccess module="products">
             <Link to="/products" className="dashboard-card">
@@ -139,6 +167,8 @@ const Dashboard = () => {
               <button className="card-btn">Settings</button>
             </Link>
           </CanAccess>
+          </>
+        )}
         </div>
       </main>
     </div>

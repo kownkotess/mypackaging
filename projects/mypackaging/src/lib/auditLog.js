@@ -20,7 +20,7 @@ export const logActivity = async (action, actor, description, category = 'action
       category,
       metadata,
       timestamp: serverTimestamp(),
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
       source: 'mypackaging_system'
     };
 

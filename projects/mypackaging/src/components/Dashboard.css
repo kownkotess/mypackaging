@@ -212,3 +212,106 @@
     padding: 25px 20px;
   }
 }
+
+/* Outsider Role Styling */
+.outsider-welcome {
+  margin: 30px 0;
+  padding: 0 20px;
+}
+
+.welcome-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #ff6b35;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.welcome-card h2 {
+  color: #004D24;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.welcome-card p {
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.access-info {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.access-info h3 {
+  color: #004D24;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.access-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.access-info li {
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.upgrade-info {
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.upgrade-info h3 {
+  color: #004D24;
+  margin-bottom: 10px;
+}
+
+.contact-info {
+  background: #e8f5e8;
+  padding: 15px;
+  border-radius: 6px;
+  margin: 15px 0;
+  text-align: center;
+}
+
+.role-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.role-badge.admin {
+  background: #dc3545;
+  color: white;
+}
+
+.role-badge.manager {
+  background: #fd7e14;
+  color: white;
+}
+
+.role-badge.staff {
+  background: #28a745;
+  color: white;
+}
+
+.role-badge.outsider {
+  background: #6c757d;
+  color: white;
+  border: 2px solid #ff6b35;
+}

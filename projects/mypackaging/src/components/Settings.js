@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
-import { collection, getDocs, doc, updateDoc, setDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -86,21 +86,21 @@ const Settings = () => {
             email: user.email,
             displayName: user.displayName || '',
             role: newRole,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
         } else {
           // Update existing document
           await updateDoc(doc(db, 'users', userId), {
             role: newRole,
-            updatedAt: new Date()
+            updatedAt: serverTimestamp()
           });
         }
       } else {
         // Update existing document
         await updateDoc(doc(db, 'users', userId), {
           role: newRole,
-          updatedAt: new Date()
+          updatedAt: serverTimestamp()
         });
       }
       await fetchUsers(); // Refresh the list
@@ -1022,6 +1022,7 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
                         onChange={(e) => setNewRole(e.target.value)}
                         className="role-select"
                       >
+                        <option value="outsider">Outsider</option>
                         <option value="staff">Staff</option>
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>

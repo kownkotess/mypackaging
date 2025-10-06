@@ -24,7 +24,7 @@ export const AuthWrapperProvider = ({ children }) => {
       'masliza@mypackaging.com': 'manager',
       'cashier@mypackaging.com': 'staff'
     };
-    return roleMapping[email] || 'staff';
+    return roleMapping[email] || 'outsider'; // Changed from 'staff' to 'outsider'
   };
 
   // Permission matrix
@@ -50,6 +50,9 @@ export const AuthWrapperProvider = ({ children }) => {
     staff: {
       sales: ['view', 'create'],
       hutang: ['view', 'edit']
+    },
+    outsider: {
+      dashboard: ['view'] // Only dashboard access, no other modules
     }
   };
 

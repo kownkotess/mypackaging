@@ -1,5 +1,5 @@
 // Business Information Service
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const BUSINESS_INFO_COLLECTION = 'businessInfo';
@@ -102,7 +102,7 @@ class BusinessInfoService {
       const docRef = doc(db, BUSINESS_INFO_COLLECTION, BUSINESS_INFO_DOC);
       const updateData = {
         ...businessInfo,
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       };
       
       // Remove any undefined or null values that might cause issues
@@ -127,7 +127,7 @@ class BusinessInfoService {
         const newDocData = {
           ...this.getDefaultBusinessInfo(),
           ...updateData,
-          createdAt: new Date()
+          createdAt: serverTimestamp()
         };
         await setDoc(docRef, newDocData);
         console.log('Document created successfully');

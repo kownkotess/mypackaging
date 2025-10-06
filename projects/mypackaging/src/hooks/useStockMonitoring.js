@@ -5,8 +5,8 @@ import {
   onSnapshot, 
   orderBy,
   doc,
-  updateDoc,
-  Timestamp 
+  Timestamp,
+  runTransaction 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logActivity } from '../lib/auditLog';
@@ -177,12 +177,21 @@ export const useStockMonitoring = () => {
 
   const updateProductReorderPoint = async (productId, newReorderPoint) => {
     try {
-      const productRef = doc(db, 'products', productId);
-      await updateDoc(productRef, {
-        reorderPoint: Number(newReorderPoint),
-        lastUpdated: Timestamp.now()
+      await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, 'products', productId);
+        const productDoc = await transaction.get(productRef);
+        
+        if (!productDoc.exists()) {
+          throw new Error('Product not found');
+        }
+        
+        transaction.update(productRef, {
+          reorderPoint: Number(newReorderPoint),
+          lastUpdated: Timestamp.now()
+        });
       });
 
+      // Log activity after successful transaction
       await logActivity(
         'reorder_point_update',
         'user', // This will be enhanced with actual user context

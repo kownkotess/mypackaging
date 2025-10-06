@@ -11,7 +11,8 @@ import {
   query,
   orderBy,
   where,
-  runTransaction
+  runTransaction,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -72,11 +73,32 @@ export const updateProduct = async (productId, updates) => {
       }
     }
 
-    const productRef = doc(db, 'products', productId);
-    await updateDoc(productRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
+    // Use transaction for critical field updates that might conflict with stock operations
+    const criticalFields = ['name', 'stockBalance', 'quantitySold', 'totalPurchased', 'reorderPoint'];
+    const hasCriticalUpdates = Object.keys(updates).some(key => criticalFields.includes(key));
+    
+    if (hasCriticalUpdates) {
+      return await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, 'products', productId);
+        const productDoc = await transaction.get(productRef);
+        
+        if (!productDoc.exists()) {
+          throw new Error('Product not found');
+        }
+        
+        transaction.update(productRef, {
+          ...updates,
+          updatedAt: serverTimestamp()
+        });
+      });
+    } else {
+      // Non-critical updates can use simple updateDoc
+      const productRef = doc(db, 'products', productId);
+      await updateDoc(productRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    }
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
@@ -407,6 +429,92 @@ export const updatePurchase = async (purchaseId, updateData) => {
   }
 };
 
+// Bulk operations with batched writes
+export const bulkUpdateProducts = async (updates) => {
+  try {
+    const maxBatchSize = 500; // Firestore limit is 500 operations per batch
+    
+    // Split into chunks if needed
+    const chunks = [];
+    for (let i = 0; i < updates.length; i += maxBatchSize) {
+      chunks.push(updates.slice(i, i + maxBatchSize));
+    }
+    
+    for (const chunk of chunks) {
+      const currentBatch = writeBatch(db);
+      
+      for (const update of chunk) {
+        const { productId, ...updateData } = update;
+        const productRef = doc(db, 'products', productId);
+        currentBatch.update(productRef, {
+          ...updateData,
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      await currentBatch.commit();
+    }
+    
+    return { success: true, updatedCount: updates.length };
+  } catch (error) {
+    console.error('Error in bulk update:', error);
+    throw error;
+  }
+};
+
+// Bulk stock adjustments with transaction safety
+export const bulkStockAdjustment = async (adjustments) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // Read all products first
+      const productRefs = adjustments.map(adj => doc(db, 'products', adj.productId));
+      const productDocs = await Promise.all(
+        productRefs.map(ref => transaction.get(ref))
+      );
+      
+      // Validate all products exist and calculate new values
+      const updates = [];
+      for (let i = 0; i < productDocs.length; i++) {
+        const productDoc = productDocs[i];
+        const adjustment = adjustments[i];
+        
+        if (!productDoc.exists()) {
+          throw new Error(`Product ${adjustment.productId} not found`);
+        }
+        
+        const currentData = productDoc.data();
+        const newStockBalance = (currentData.stockBalance || 0) + (adjustment.adjustmentQty || 0);
+        
+        if (newStockBalance < 0) {
+          throw new Error(`Cannot adjust ${currentData.name} stock below zero`);
+        }
+        
+        updates.push({
+          ref: productRefs[i],
+          stockBalance: newStockBalance,
+          adjustmentReason: adjustment.reason || 'Bulk adjustment',
+          lastAdjustment: adjustment.adjustmentQty
+        });
+      }
+      
+      // Apply all updates
+      updates.forEach(update => {
+        transaction.update(update.ref, {
+          stockBalance: update.stockBalance,
+          lastAdjustment: update.lastAdjustment,
+          adjustmentReason: update.adjustmentReason,
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      return { success: true, adjustedCount: adjustments.length };
+    });
+  } catch (error) {
+    console.error('Error in bulk stock adjustment:', error);
+    throw error;
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -416,7 +524,9 @@ const firestoreUtils = {
   createSale,
   createPurchase,
   updatePurchase,
-  subscribePurchases
+  subscribePurchases,
+  bulkUpdateProducts,
+  bulkStockAdjustment
 };
 
 export default firestoreUtils;
