@@ -48,6 +48,7 @@ export const AuthWrapperProvider = ({ children }) => {
       analytics: ['view']
     },
     staff: {
+      products: ['view'], // Allow viewing products for QR scanning and label printing
       sales: ['view', 'create'],
       hutang: ['view', 'edit']
     },

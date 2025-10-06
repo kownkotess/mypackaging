@@ -51,3 +51,288 @@
 .bg-secondary {
   background-color: var(--secondary-color) !important;
 }
+
+/* Mobile-First PWA Enhancements */
+.App {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* iOS safe area */
+}
+
+/* Touch-friendly button improvements */
+.btn {
+  min-height: 48px; /* Apple/Google recommended minimum */
+  min-width: 48px;
+  padding: 12px 20px;
+  touch-action: manipulation; /* Disable double-tap zoom */
+  user-select: none;
+  border-radius: 8px;
+  font-size: 16px; /* Prevent zoom on iOS */
+  cursor: pointer;
+}
+
+/* Enhanced touch feedback */
+.btn:active,
+.card:active,
+.nav-link:active,
+.dashboard-card:active {
+  transform: scale(0.96);
+  transition: transform 0.15s ease;
+}
+
+/* Touch-friendly form inputs */
+input, select, textarea {
+  min-height: 48px;
+  font-size: 16px; /* Prevent zoom on iOS */
+  padding: 12px 16px;
+  border-radius: 8px;
+  touch-action: manipulation;
+}
+
+/* Mobile-first spacing */
+.mobile-touch-spacing {
+  margin: 8px;
+  padding: 12px;
+}
+
+/* Better tap targets for links */
+a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+/* Mobile navigation improvements */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+  
+  .navbar-nav .nav-link {
+    padding: 16px 20px; /* Larger touch targets */
+    font-size: 16px;
+    margin: 4px 0;
+    border-radius: 8px;
+  }
+  
+  /* Better button spacing on mobile */
+  .btn {
+    margin: 6px 4px;
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  /* Mobile-optimized cards */
+  .card {
+    margin-bottom: 16px;
+    border-radius: 12px;
+  }
+}
+
+/* Extra mobile optimizations for small screens */
+@media (max-width: 480px) {
+  .btn {
+    font-size: 18px;
+    padding: 16px 24px;
+    min-height: 52px;
+  }
+  
+  input, select, textarea {
+    font-size: 18px;
+    min-height: 52px;
+    padding: 16px;
+  }
+}
+
+/* Responsive font scaling */
+@media (max-width: 576px) {
+  html {
+    font-size: 14px;
+  }
+  
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.6rem; }
+  h3 { font-size: 1.4rem; }
+  h4 { font-size: 1.2rem; }
+  h5 { font-size: 1.1rem; }
+  h6 { font-size: 1rem; }
+}
+
+/* Card improvements for mobile */
+@media (max-width: 768px) {
+  .card {
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+}
+
+/* Table responsive improvements */
+@media (max-width: 768px) {
+  .table-responsive {
+    border: none;
+    margin-bottom: 1rem;
+  }
+  
+  .table {
+    font-size: 0.875rem;
+  }
+  
+  .table td,
+  .table th {
+    padding: 0.5rem;
+    vertical-align: middle;
+  }
+  
+  /* Stack table on very small screens */
+  @media (max-width: 576px) {
+    .table,
+    .table thead,
+    .table tbody,
+    .table th,
+    .table td,
+    .table tr {
+      display: block;
+    }
+    
+    .table thead tr {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+    }
+    
+    .table tr {
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: white;
+    }
+    
+    .table td {
+      border: none;
+      position: relative;
+      padding-left: 50% !important;
+      text-align: left;
+      white-space: normal;
+    }
+    
+    .table td:before {
+      content: attr(data-label);
+      position: absolute;
+      left: 6px;
+      width: 45%;
+      padding-right: 10px;
+      white-space: nowrap;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+  }
+}
+
+/* Form improvements for mobile */
+@media (max-width: 768px) {
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+  
+  .form-control {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px 16px;
+    border-radius: 8px;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--primary-color);
+  }
+}
+
+/* Modal improvements for mobile */
+@media (max-width: 768px) {
+  .modal-dialog {
+    margin: 10px;
+    max-width: calc(100vw - 20px);
+  }
+  
+  .modal-content {
+    border-radius: 12px;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
+  
+  .modal-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Offline indicator */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--warning-color);
+  color: #333;
+  text-align: center;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  .App {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  /* Hide browser-specific elements when in PWA mode */
+  .pwa-hide {
+    display: none;
+  }
+}
+
+/* Dark mode support preparation */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --light-color: #2d3748;
+    --dark-color: #f7fafc;
+  }
+}

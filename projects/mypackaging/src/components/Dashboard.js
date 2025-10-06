@@ -4,6 +4,10 @@ import { useAuth } from '../context/AuthContextWrapper';
 import { CanAccess } from './RoleComponents';
 import NotificationDropdown from './NotificationDropdown';
 import DashboardAlerts from './DashboardAlerts';
+import SyncStatus from './SyncStatus';
+import ConflictResolution from './ConflictResolution';
+import MobileNav from './MobileNav';
+import offlineDataService from '../lib/offlineDataService';
 import logo from '../assets/logo.png';
 import './Dashboard.css';
 
@@ -18,9 +22,69 @@ const Dashboard = () => {
     }
   };
 
+  // Test function to add sample offline data
+  const addTestData = async () => {
+    try {
+      await offlineDataService.init();
+      
+      // Add a test pending sale
+      await offlineDataService.storePendingSale({
+        total: 25.99,
+        items: [
+          { name: 'Test Product', quantity: 2, price: 12.99 }
+        ],
+        paymentMethod: 'cash',
+        customerName: 'Test Customer'
+      });
+      
+      // Add a test inventory update
+      await offlineDataService.storePendingInventoryUpdate({
+        productId: 'test-product-123',
+        type: 'adjustment',
+        quantity: 10,
+        reason: 'Stock adjustment test'
+      });
+      
+      console.log('Test data added successfully');
+      alert('Test data added! Check sync status.');
+      
+      // Refresh the page to see updated sync status
+      window.location.reload();
+    } catch (error) {
+      console.error('Error adding test data:', error);
+      alert('Error adding test data. Check console.');
+    }
+  };
+
+  // Function to clear all test/pending data
+  const clearTestData = async () => {
+    try {
+      const confirm = window.confirm('Are you sure you want to clear all pending sync data? This action cannot be undone.');
+      if (!confirm) return;
+
+      await offlineDataService.init();
+      
+      // Clear all pending data
+      await offlineDataService.clearAllPendingData();
+      
+      console.log('Test data cleared successfully');
+      alert('All pending data cleared!');
+      
+      // Refresh the page to see updated sync status
+      window.location.reload();
+    } catch (error) {
+      console.error('Error clearing test data:', error);
+      alert('Error clearing test data. Check console.');
+    }
+  };
+
   return (
     <div className="dashboard">
-      <header className="dashboard-header">
+      {/* Mobile Navigation - shown only on mobile */}
+      <MobileNav />
+      
+      {/* Desktop Header - hidden on mobile */}
+      <header className="dashboard-header desktop-only">
         <div className="header-content">
           <div className="logo-title-container">
             <img src={logo} alt="MyPackaging Logo" className="logo" />
@@ -46,6 +110,44 @@ const Dashboard = () => {
       <main className="dashboard-main">
         {/* Dashboard Alert Center */}
         <DashboardAlerts />
+
+        {/* Sync Status Panel */}
+        <div className="sync-panel">
+          <SyncStatus compact={true} />
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <div style={{ display: 'flex', gap: '10px', marginLeft: '10px' }}>
+              <button 
+                onClick={addTestData}
+                className="test-data-btn"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: '#ffc107',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Add Test Data
+              </button>
+              <button 
+                onClick={clearTestData}
+                className="clear-data-btn"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear Test Data
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Role Information Panel */}
         <div className="role-info-panel">
@@ -85,6 +187,13 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Conflict Resolution Section - Show for all authenticated users */}
+        <CanAccess module="dashboard">
+          <div className="conflicts-section">
+            <ConflictResolution />
+          </div>
+        </CanAccess>
 
         <div className="dashboard-grid">{userRole !== 'outsider' && (
           <>

@@ -73,6 +73,14 @@ const Reports = () => {
   const [salesCurrentPage, setSalesCurrentPage] = useState(1);
   const [salesItemsPerPage] = useState(15); // Show 15 sales per page
 
+  // Enhanced date filtering for Sales Recorded tab
+  const [customDateRange, setCustomDateRange] = useState({
+    filterType: 'preset', // 'preset' or 'custom'
+    startDate: '',
+    endDate: '',
+    singleDate: ''
+  });
+
   // Modal states for expanded views
   const [expandedModal, setExpandedModal] = useState({
     isOpen: false,
@@ -547,34 +555,85 @@ const Reports = () => {
   const getFilteredSalesData = () => {
     const now = new Date();
     let startDate = new Date();
+    let endDate = new Date();
 
-    switch (dateRange) {
-      case 'week':
-        startDate = subDays(now, 7);
-        break;
-      case 'month':
-        startDate = subDays(now, 30);
-        break;
-      case 'quarter':
-        startDate = subDays(now, 90);
-        break;
-      case 'year':
-        startDate = subDays(now, 365);
-        break;
-      case 'all':
-      default:
-        startDate = new Date(0); // Beginning of time
-        break;
+    // Handle custom date filtering
+    if (customDateRange.filterType === 'custom') {
+      if (customDateRange.singleDate) {
+        // Single date filter
+        const selectedDate = new Date(customDateRange.singleDate);
+        startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
+        endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59);
+      } else if (customDateRange.startDate && customDateRange.endDate) {
+        // Date range filter
+        startDate = new Date(customDateRange.startDate);
+        endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+      } else {
+        // Fallback to all time if custom dates are incomplete
+        startDate = new Date(0);
+        endDate = now;
+      }
+    } else {
+      // Handle preset date ranges
+      endDate = now;
+      switch (dateRange) {
+        case 'week':
+          startDate = subDays(now, 7);
+          break;
+        case 'month':
+          startDate = subDays(now, 30);
+          break;
+        case 'quarter':
+          startDate = subDays(now, 90);
+          break;
+        case 'year':
+          startDate = subDays(now, 365);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0);
+          break;
+      }
     }
 
     return sales.filter(sale => {
       const saleDate = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
-      return saleDate >= startDate;
+      return saleDate >= startDate && saleDate <= endDate;
     }).sort((a, b) => {
       const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
       return dateB - dateA; // Most recent first
     });
+  };
+
+  // Calculate payment method totals for filtered sales
+  const getPaymentMethodTotals = () => {
+    const filteredSales = getFilteredSalesData();
+    
+    const totals = {
+      cash: 0,
+      online: 0,
+      hutang: 0,
+      overall: 0
+    };
+
+    filteredSales.forEach(sale => {
+      const amount = parseFloat(sale.totalPrice || 0);
+      totals.overall += amount;
+
+      // Categorize by payment status
+      if (sale.status === 'Hutang') {
+        totals.hutang += amount;
+      } else if (sale.paymentMethod === 'Online' || sale.paymentMethod === 'online') {
+        totals.online += amount;
+      } else {
+        // Default to cash for completed sales that aren't hutang or online
+        totals.cash += amount;
+      }
+    });
+
+    return totals;
   };
 
   // Get paginated sales data
@@ -591,7 +650,7 @@ const Reports = () => {
   // Reset sales pagination when date filter changes
   useEffect(() => {
     setSalesCurrentPage(1);
-  }, [dateRange]);
+  }, [dateRange, customDateRange]);
 
   const handleSalesPageChange = (pageNumber) => {
     setSalesCurrentPage(pageNumber);
@@ -1495,19 +1554,148 @@ const Reports = () => {
                 </div>
               
               <div className="sales-controls">
-                <div className="date-filter">
-                  <label>Date Range:</label>
-                  <select 
-                    value={dateRange} 
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="date-selector"
-                  >
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="quarter">Last 90 Days</option>
-                    <option value="year">Last Year</option>
-                    <option value="all">All Time</option>
-                  </select>
+                <div className="enhanced-date-filter">
+                  <div className="filter-mode-selector">
+                    <label>Filter Type:</label>
+                    <select 
+                      value={customDateRange.filterType} 
+                      onChange={(e) => setCustomDateRange(prev => ({
+                        ...prev,
+                        filterType: e.target.value,
+                        startDate: '',
+                        endDate: '',
+                        singleDate: ''
+                      }))}
+                      className="filter-type-selector"
+                    >
+                      <option value="preset">Quick Ranges</option>
+                      <option value="custom">Custom Date</option>
+                    </select>
+                  </div>
+
+                  {customDateRange.filterType === 'preset' ? (
+                    <div className="date-filter">
+                      <label>Date Range:</label>
+                      <select 
+                        value={dateRange} 
+                        onChange={(e) => setDateRange(e.target.value)}
+                        className="date-selector"
+                      >
+                        <option value="week">Last 7 Days</option>
+                        <option value="month">Last 30 Days</option>
+                        <option value="quarter">Last 90 Days</option>
+                        <option value="year">Last Year</option>
+                        <option value="all">All Time</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="custom-date-controls">
+                      <div className="date-input-group">
+                        <label>
+                          <input 
+                            type="radio" 
+                            name="dateMode" 
+                            checked={!customDateRange.startDate || !customDateRange.endDate}
+                            onChange={() => setCustomDateRange(prev => ({
+                              ...prev,
+                              startDate: '',
+                              endDate: ''
+                            }))}
+                          />
+                          Single Date:
+                        </label>
+                        <input 
+                          type="date" 
+                          value={customDateRange.singleDate}
+                          onChange={(e) => setCustomDateRange(prev => ({
+                            ...prev,
+                            singleDate: e.target.value,
+                            startDate: '',
+                            endDate: ''
+                          }))}
+                          className="date-input"
+                        />
+                      </div>
+                      
+                      <div className="date-input-group">
+                        <label>
+                          <input 
+                            type="radio" 
+                            name="dateMode" 
+                            checked={customDateRange.startDate && customDateRange.endDate}
+                            onChange={() => setCustomDateRange(prev => ({
+                              ...prev,
+                              singleDate: ''
+                            }))}
+                          />
+                          Date Range:
+                        </label>
+                        <div className="date-range-inputs">
+                          <input 
+                            type="date" 
+                            value={customDateRange.startDate}
+                            onChange={(e) => setCustomDateRange(prev => ({
+                              ...prev,
+                              startDate: e.target.value,
+                              singleDate: ''
+                            }))}
+                            className="date-input"
+                            placeholder="From"
+                          />
+                          <span className="date-separator">to</span>
+                          <input 
+                            type="date" 
+                            value={customDateRange.endDate}
+                            onChange={(e) => setCustomDateRange(prev => ({
+                              ...prev,
+                              endDate: e.target.value,
+                              singleDate: ''
+                            }))}
+                            className="date-input"
+                            placeholder="To"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Method Totals Display */}
+              <div className="payment-totals-summary">
+                <h4>💰 Payment Method Breakdown</h4>
+                <div className="totals-grid">
+                  <div className="total-card cash">
+                    <div className="total-icon">💵</div>
+                    <div className="total-info">
+                      <span className="total-label">Cash</span>
+                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().cash)}</span>
+                    </div>
+                  </div>
+                  <div className="total-card online">
+                    <div className="total-icon">💳</div>
+                    <div className="total-info">
+                      <span className="total-label">Online</span>
+                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().online)}</span>
+                    </div>
+                  </div>
+                  <div className="total-card hutang">
+                    <div className="total-icon">📝</div>
+                    <div className="total-info">
+                      <span className="total-label">Hutang</span>
+                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().hutang)}</span>
+                    </div>
+                  </div>
+                  <div className="total-card overall">
+                    <div className="total-icon">🏆</div>
+                    <div className="total-info">
+                      <span className="total-label">Overall Total</span>
+                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().overall)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="totals-info">
+                  <small>💡 Showing totals for {getFilteredSalesData().length} sales records in selected period</small>
                 </div>
               </div>
 

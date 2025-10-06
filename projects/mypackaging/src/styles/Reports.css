@@ -979,3 +979,239 @@
     font-size: 0.8rem;
   }
 }
+
+/* Enhanced Date Filter Styles */
+.enhanced-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.filter-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-mode-selector label {
+  font-weight: 600;
+  color: #333;
+  min-width: 100px;
+}
+
+.filter-type-selector {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.filter-type-selector:focus {
+  outline: none;
+  border-color: #006B32;
+}
+
+.custom-date-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.date-input-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.date-input-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #555;
+  min-width: 120px;
+}
+
+.date-input-group input[type="radio"] {
+  margin: 0;
+}
+
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #006B32;
+}
+
+.date-separator {
+  color: #666;
+  font-weight: 500;
+  padding: 0 5px;
+}
+
+/* Payment Totals Summary Styles */
+.payment-totals-summary {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  border: 1px solid #e1e5e9;
+}
+
+.payment-totals-summary h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.total-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border-radius: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.total-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.total-card.cash {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+  border: 2px solid #4caf50;
+}
+
+.total-card.online {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%);
+  border: 2px solid #2196f3;
+}
+
+.total-card.hutang {
+  background: linear-gradient(135deg, #fff3e0 0%, #fff8f0 100%);
+  border: 2px solid #ff9800;
+}
+
+.total-card.overall {
+  background: linear-gradient(135deg, #f3e5f5 0%, #faf5fb 100%);
+  border: 2px solid #9c27b0;
+}
+
+.total-icon {
+  font-size: 2rem;
+  opacity: 0.8;
+}
+
+.total-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.total-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.total-amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.totals-info {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid #e1e5e9;
+}
+
+.totals-info small {
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+  .enhanced-date-filter {
+    padding: 15px;
+  }
+  
+  .date-input-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .date-input-group label {
+    min-width: auto;
+  }
+  
+  .date-range-inputs {
+    justify-content: center;
+  }
+  
+  .totals-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  
+  .total-card {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .total-icon {
+    font-size: 1.5rem;
+  }
+  
+  .total-amount {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .totals-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .payment-totals-summary {
+    padding: 15px;
+  }
+}

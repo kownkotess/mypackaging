@@ -479,3 +479,283 @@
     font-size: 0.8rem;
   }
 }
+
+/* Header buttons layout */
+.header-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* QR Code section styles */
+.product-qr-section {
+  margin: 15px 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.qr-code-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.qr-code-image {
+  width: 80px;
+  height: 80px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  background: white;
+  padding: 4px;
+}
+
+.qr-code-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #6c757d;
+}
+
+.qr-placeholder-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.qr-code-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.qr-status {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.qr-status.success {
+  color: #198754;
+  background: #d1e7dd;
+}
+
+/* Enhanced product actions layout */
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Responsive QR code styles */
+@media (max-width: 480px) {
+  .header-buttons {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .header-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .qr-code-image {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .product-actions {
+    gap: 6px;
+  }
+  
+  .product-actions .btn.small {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+/* Print Selection Styles */
+.selection-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select-all-checkbox,
+.product-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.select-all-checkbox input[type="checkbox"],
+.product-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  height: 18px;
+  width: 18px;
+  background-color: #fff;
+  border: 2px solid #007bff;
+  border-radius: 3px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.select-all-checkbox:hover .checkmark,
+.product-checkbox:hover .checkmark {
+  background-color: #f8f9fa;
+  border-color: #0056b3;
+}
+
+.select-all-checkbox input:checked ~ .checkmark,
+.product-checkbox input:checked ~ .checkmark {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.select-all-checkbox input:checked ~ .checkmark:after,
+.product-checkbox input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.select-all-checkbox .checkmark:after,
+.product-checkbox .checkmark:after {
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.product-select-checkbox {
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.product-card {
+  position: relative;
+}
+
+.product-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.product-header h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+  line-height: 1.3;
+  min-width: 0; /* Allow text to wrap */
+}
+
+.stock-badge {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Success button styling */
+.btn.success {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.btn.success:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+.btn.success:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Enhanced products-controls layout */
+.products-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-box {
+  flex: 1;
+  min-width: 200px;
+}
+
+.selection-controls {
+  flex-shrink: 0;
+}
+
+.products-count {
+  flex-shrink: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Mobile responsive for controls */
+@media (max-width: 768px) {
+  .products-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .search-box {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .selection-controls {
+    justify-content: center;
+  }
+  
+  .products-count {
+    text-align: center;
+  }
+}

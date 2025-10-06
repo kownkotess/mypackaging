@@ -17,6 +17,8 @@ import Reports from './components/ReportsFull';
 import Settings from './components/Settings';
 import ChangePassword from './components/ChangePassword';
 import StockMonitoring from './components/StockMonitoring';
+import InstallPrompt from './components/InstallPrompt';
+import OfflineIndicator from './components/OfflineIndicator';
 
 function App() {
   return (
@@ -25,6 +27,7 @@ function App() {
         <AlertProvider>
           <Router>
             <div className="App">
+              <OfflineIndicator />
               <Toast />
               <Routes>
               {/* Dashboard - accessible to all authenticated users */}
@@ -97,6 +100,7 @@ function App() {
                 </ProtectedRoute>
               } />
             </Routes>
+            <InstallPrompt />
           </div>
         </Router>
         </AlertProvider>

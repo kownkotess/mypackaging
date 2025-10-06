@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { subscribeProducts, deleteProduct } from '../lib/firestore';
+import { subscribeProducts, deleteProduct, generateQRCodeForProduct, generateQRCodesForAllProducts } from '../lib/firestore';
 import { useAlert } from '../context/AlertContext';
 import { useAuth } from '../context/AuthContextWrapper';
 import { RequirePermission } from './RoleComponents';
 import { logActivity } from '../lib/auditLog';
 import ProductForm from './ProductForm';
+import PrintModal from './PrintModal';
 import ReturnToTop from './ReturnToTop';
 import './Products.css';
 
 const Products = () => {
-  const { showConfirm } = useAlert();
+  const { showConfirm, showSuccess, showError, showWarning } = useAlert();
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,10 @@ const Products = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [generatingQR, setGeneratingQR] = useState(false);
+  const [generatingQRAll, setGeneratingQRAll] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [showPrintModal, setShowPrintModal] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,6 +85,95 @@ const Products = () => {
     setEditingProduct(null);
   };
 
+  const handleGenerateQRCode = async (productId, productName) => {
+    setGeneratingQR(productId);
+    try {
+      await generateQRCodeForProduct(productId, productName);
+      showSuccess(`QR code generated successfully for ${productName}`);
+      
+      await logActivity(
+        'qr_code_generated',
+        user?.email || 'unknown_user',
+        `QR code generated for product "${productName}"`,
+        'action',
+        {
+          productId,
+          productName,
+          generatedBy: user?.email
+        }
+      );
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      showError(`Failed to generate QR code for ${productName}. Please try again.`);
+    } finally {
+      setGeneratingQR(false);
+    }
+  };
+
+  const handleGenerateAllQRCodes = async () => {
+    setGeneratingQRAll(true);
+    try {
+      const results = await generateQRCodesForAllProducts();
+      
+      if (results.failed > 0) {
+        showWarning(
+          `QR codes generated: ${results.success}/${results.total} successful. ${results.failed} failed.`
+        );
+      } else {
+        showSuccess(
+          `All QR codes generated successfully! (${results.success}/${results.total})`
+        );
+      }
+      
+      await logActivity(
+        'bulk_qr_generation',
+        user?.email || 'unknown_user',
+        `Bulk QR code generation: ${results.success}/${results.total} successful`,
+        'action',
+        {
+          totalProducts: results.total,
+          successCount: results.success,
+          failedCount: results.failed,
+          generatedBy: user?.email
+        }
+      );
+    } catch (error) {
+      console.error('Error generating QR codes:', error);
+      showError('Failed to generate QR codes. Please try again.');
+    } finally {
+      setGeneratingQRAll(false);
+    }
+  };
+
+  // Product selection handlers
+  const handleProductSelect = (productId) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.size === filteredProducts.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+    }
+  };
+
+  const handlePrint = () => {
+    if (selectedProducts.size === 0) {
+      showWarning('Please select at least one product to print.');
+      return;
+    }
+    setShowPrintModal(true);
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -134,11 +228,31 @@ const Products = () => {
       
       <div className="products-header">
         <h1>📦 Product Management</h1>
-        <RequirePermission module="products" action="create">
-          <button onClick={handleAddProduct} className="btn primary">
-            + Add New Product
-          </button>
-        </RequirePermission>
+        <div className="header-buttons">
+          <RequirePermission module="products" action="create">
+            <button onClick={handleAddProduct} className="btn primary">
+              + Add New Product
+            </button>
+          </RequirePermission>
+          <RequirePermission module="products" action="edit">
+            <button 
+              onClick={handleGenerateAllQRCodes} 
+              className="btn secondary"
+              disabled={generatingQRAll || products.length === 0}
+            >
+              {generatingQRAll ? '⏳ Generating...' : '📱 Generate All QR Codes'}
+            </button>
+          </RequirePermission>
+          <RequirePermission module="products" action="view">
+            <button 
+              onClick={handlePrint} 
+              className="btn success"
+              disabled={selectedProducts.size === 0}
+            >
+              🖨️ Print Selected ({selectedProducts.size})
+            </button>
+          </RequirePermission>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -152,6 +266,19 @@ const Products = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
+        </div>
+        <div className="selection-controls">
+          <RequirePermission module="products" action="view">
+            <label className="select-all-checkbox">
+              <input
+                type="checkbox"
+                checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                onChange={handleSelectAll}
+              />
+              <span className="checkmark"></span>
+              Select All ({selectedProducts.size} selected)
+            </label>
+          </RequirePermission>
         </div>
         <div className="products-count">
           {filteredProducts.length} of {products.length} products
@@ -183,6 +310,18 @@ const Products = () => {
               return (
                 <div key={product.id} className={`product-card ${stockStatus}`}>
                   <div className="product-header">
+                    <RequirePermission module="products" action="view">
+                      <div className="product-select-checkbox">
+                        <label className="product-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.has(product.id)}
+                            onChange={() => handleProductSelect(product.id)}
+                          />
+                          <span className="checkmark"></span>
+                        </label>
+                      </div>
+                    </RequirePermission>
                     <h3>{product.name}</h3>
                     <div className={`stock-badge ${stockStatus}`}>
                       {getStockStatusText(stockStatus)}
@@ -230,6 +369,28 @@ const Products = () => {
                     </div>
                   </div>
 
+                  {/* QR Code Section */}
+                  <div className="product-qr-section">
+                    {product.qrCode ? (
+                      <div className="qr-code-display">
+                        <img 
+                          src={product.qrCode} 
+                          alt={`QR Code for ${product.name}`} 
+                          className="qr-code-image"
+                          title="QR Code for this product"
+                        />
+                        <div className="qr-code-info">
+                          <span className="qr-status success">✓ QR Code Ready</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="qr-code-placeholder">
+                        <div className="qr-placeholder-icon">📱</div>
+                        <span className="qr-status">No QR Code</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="product-actions">
                     <RequirePermission module="products" action="edit">
                       <button 
@@ -239,6 +400,17 @@ const Products = () => {
                         Edit
                       </button>
                     </RequirePermission>
+                    {!product.qrCode && (
+                      <RequirePermission module="products" action="edit">
+                        <button 
+                          onClick={() => handleGenerateQRCode(product.id, product.name)}
+                          className="btn primary small"
+                          disabled={generatingQR === product.id}
+                        >
+                          {generatingQR === product.id ? '⏳' : '📱 Generate QR'}
+                        </button>
+                      </RequirePermission>
+                    )}
                     <RequirePermission module="products" action="delete">
                       <button 
                         onClick={() => handleDeleteProduct(product.id, product.name)}
@@ -319,6 +491,13 @@ const Products = () => {
           onClose={handleFormClose}
         />
       )}
+
+      <PrintModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        products={products}
+        selectedProductIds={selectedProducts}
+      />
     </div>
   );
 };

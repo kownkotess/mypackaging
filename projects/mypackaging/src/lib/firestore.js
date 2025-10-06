@@ -15,6 +15,75 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { generateProductQRCode } from '../utils/qrCodeGenerator';
+
+export const generateQRCodeForProduct = async (productId, productName) => {
+  try {
+    const qrCodeDataURL = await generateProductQRCode(productId, productName);
+    
+    const productRef = doc(db, 'products', productId);
+    await updateDoc(productRef, {
+      qrCode: qrCodeDataURL,
+      qrCodeGenerated: true,
+      qrCodeUpdatedAt: serverTimestamp()
+    });
+    
+    return qrCodeDataURL;
+  } catch (error) {
+    console.error('Error generating QR code for existing product:', error);
+    
+    // Update with error status
+    const productRef = doc(db, 'products', productId);
+    await updateDoc(productRef, {
+      qrCodeGenerated: false,
+      qrCodeError: error.message,
+      qrCodeUpdatedAt: serverTimestamp()
+    });
+    
+    throw error;
+  }
+};
+
+export const generateQRCodesForAllProducts = async () => {
+  try {
+    const productsRef = collection(db, 'products');
+    const productsSnapshot = await getDocs(productsRef);
+    
+    const results = {
+      total: productsSnapshot.size,
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
+    for (const productDoc of productsSnapshot.docs) {
+      const product = productDoc.data();
+      
+      // Skip if QR code already exists and is valid
+      if (product.qrCodeGenerated && product.qrCode) {
+        results.success++;
+        continue;
+      }
+      
+      try {
+        await generateQRCodeForProduct(productDoc.id, product.name);
+        results.success++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          productId: productDoc.id,
+          productName: product.name,
+          error: error.message
+        });
+      }
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Error generating QR codes for all products:', error);
+    throw error;
+  }
+};
 
 // Products operations
 export const getProducts = async () => {
@@ -50,6 +119,26 @@ export const addProduct = async (productData) => {
       totalPurchased: productData.startingStock || 0,
       createdAt: serverTimestamp()
     });
+    
+    // Generate QR code for the new product
+    try {
+      const qrCodeDataURL = await generateProductQRCode(docRef.id, productData.name);
+      
+      // Update the product with the QR code
+      await updateDoc(docRef, {
+        qrCode: qrCodeDataURL,
+        qrCodeGenerated: true,
+        qrCodeUpdatedAt: serverTimestamp()
+      });
+    } catch (qrError) {
+      console.warn('Failed to generate QR code for product:', qrError);
+      // Don't fail the entire operation if QR generation fails
+      await updateDoc(docRef, {
+        qrCodeGenerated: false,
+        qrCodeError: qrError.message
+      });
+    }
+    
     return docRef.id;
   } catch (error) {
     console.error('Error adding product:', error);

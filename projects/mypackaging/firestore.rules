@@ -36,7 +36,7 @@ service cloud.firestore {
     }
     
     // Products collection
-    // Admin: full access | Manager: view, create, edit | Staff: no access
+    // Admin: full access | Manager: view, create, edit | Staff: view only (for QR scanning)
     match /products/{productId} {
       allow read: if isAuthenticated();
       allow create, update: if isManagerOrAdmin();

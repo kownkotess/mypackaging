@@ -1,0 +1,15 @@
+{
+  "env": {
+    "serviceworker": true
+  },
+  "globals": {
+    "self": "readonly",
+    "caches": "readonly",
+    "clients": "readonly",
+    "registration": "readonly",
+    "addEventListener": "readonly"
+  },
+  "rules": {
+    "no-restricted-globals": "off"
+  }
+}
