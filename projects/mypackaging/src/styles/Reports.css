@@ -1131,6 +1131,11 @@
   border: 2px solid #9c27b0;
 }
 
+.total-card.repayments {
+  background: linear-gradient(135deg, #fff3e0 0%, #fff8f0 100%);
+  border: 2px solid #4caf50;
+}
+
 .total-icon {
   font-size: 2rem;
   opacity: 0.8;
@@ -1156,6 +1161,13 @@
   color: #333;
 }
 
+.repayment-note {
+  font-size: 0.75rem;
+  color: #4caf50;
+  font-weight: 500;
+  font-style: italic;
+}
+
 .totals-info {
   text-align: center;
   padding-top: 10px;
@@ -1165,6 +1177,13 @@
 .totals-info small {
   color: #666;
   font-style: italic;
+  display: block;
+  margin: 2px 0;
+}
+
+.repayments-info {
+  color: #4caf50 !important;
+  font-weight: 500;
 }
 
 /* Responsive adjustments for mobile */

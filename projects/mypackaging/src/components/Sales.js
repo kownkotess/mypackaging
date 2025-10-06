@@ -8,6 +8,7 @@ import receiptService from '../services/receiptService';
 import ReceiptModal from './ReceiptModal';
 import BarcodeScanner from './BarcodeScanner';
 import { logActivity } from '../lib/auditLog';
+import { parseProductQRCode, isProductQRCode } from '../utils/qrCodeGenerator';
 import './Sales.css';
 
 const Sales = () => {
@@ -83,12 +84,31 @@ const Sales = () => {
   const handleBarcodeScanned = (barcode) => {
     setScanningMessage(`Scanned: ${barcode}`);
     
-    // Look for product by barcode
-    const foundProduct = products.find(product => 
-      product.barcode === barcode || 
-      product.sku === barcode ||
-      product.id === barcode
-    );
+    let foundProduct = null;
+    
+    // Check if it's our product QR code format
+    if (isProductQRCode(barcode)) {
+      try {
+        const productId = parseProductQRCode(barcode);
+        foundProduct = products.find(product => product.id === productId);
+        
+        if (foundProduct) {
+          console.log('Found product via QR code:', foundProduct.name);
+        }
+      } catch (error) {
+        console.error('Error parsing QR code:', error);
+        setScanningMessage(`❌ Invalid QR code format`);
+        setTimeout(() => setScanningMessage(''), 5000);
+        return;
+      }
+    } else {
+      // Look for product by traditional barcode, SKU, or ID
+      foundProduct = products.find(product => 
+        product.barcode === barcode || 
+        product.sku === barcode ||
+        product.id === barcode
+      );
+    }
 
     if (foundProduct) {
       addProductToSale(foundProduct);
@@ -98,7 +118,8 @@ const Sales = () => {
       // Clear message after 3 seconds
       setTimeout(() => setScanningMessage(''), 3000);
     } else {
-      setScanningMessage(`❌ Product not found for barcode: ${barcode}`);
+      const codeType = isProductQRCode(barcode) ? 'QR code' : 'barcode';
+      setScanningMessage(`❌ Product not found for ${codeType}: ${barcode}`);
       
       // Clear message after 5 seconds
       setTimeout(() => setScanningMessage(''), 5000);

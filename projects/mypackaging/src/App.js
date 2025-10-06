@@ -19,6 +19,7 @@ import ChangePassword from './components/ChangePassword';
 import StockMonitoring from './components/StockMonitoring';
 import InstallPrompt from './components/InstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
+import DataCleanup from './components/DataCleanup';
 
 function App() {
   return (
@@ -97,6 +98,13 @@ function App() {
               <Route path="/change-password" element={
                 <ProtectedRoute>
                   <ChangePassword />
+                </ProtectedRoute>
+              } />
+              
+              {/* Data Cleanup - admin only, temporary route */}
+              <Route path="/data-cleanup" element={
+                <ProtectedRoute requiredRole={['admin']}>
+                  <DataCleanup />
                 </ProtectedRoute>
               } />
             </Routes>

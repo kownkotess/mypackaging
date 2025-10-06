@@ -49,6 +49,7 @@ const Reports = () => {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [payments, setPayments] = useState([]);
   const componentRef = useRef();
 
   // Financial Data
@@ -128,6 +129,17 @@ const Reports = () => {
           createdAt: doc.data().createdAt?.toDate()
         }));
         setPurchases(purchasesData);
+      }));
+
+      // Payments data (hutang repayments)
+      const paymentsQuery = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+      unsubscribes.push(onSnapshot(paymentsQuery, (snapshot) => {
+        const paymentsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate()
+        }));
+        setPayments(paymentsData);
       }));
 
       setLoading(false);
@@ -607,31 +619,95 @@ const Reports = () => {
     });
   };
 
-  // Calculate payment method totals for filtered sales
+  // Calculate payment method totals for filtered sales including repayments
   const getPaymentMethodTotals = () => {
     const filteredSales = getFilteredSalesData();
     
+    // Get date range using the same logic as getFilteredSalesData
+    const now = new Date();
+    let startDate, endDate;
+
+    if (customDateRange.filterType === 'custom') {
+      if (customDateRange.startDate && customDateRange.endDate) {
+        startDate = new Date(customDateRange.startDate);
+        endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date(0);
+        endDate = now;
+      }
+    } else {
+      endDate = now;
+      switch (dateRange) {
+        case 'week':
+          startDate = subDays(now, 7);
+          break;
+        case 'month':
+          startDate = subDays(now, 30);
+          break;
+        case 'quarter':
+          startDate = subDays(now, 90);
+          break;
+        case 'year':
+          startDate = subDays(now, 365);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0);
+          break;
+      }
+    }
+    
+    // Filter payments within the same date range
+    const filteredPayments = payments.filter(payment => {
+      const paymentDate = payment.createdAt;
+      const isInRange = paymentDate >= startDate && paymentDate <= endDate;
+      return isInRange;
+    });
+
     const totals = {
-      cash: 0,
-      online: 0,
-      hutang: 0,
-      overall: 0
+      cash: 0,           // Original cash sales only
+      online: 0,         // Original online sales only
+      hutangOriginal: 0, // Original hutang sales
+      hutangOutstanding: 0, // Outstanding after repayments
+      overall: 0,        // Total of all original sales
+      repayments: {
+        cash: 0,
+        online: 0,
+        total: 0
+      }
     };
 
+    // Process original sales
     filteredSales.forEach(sale => {
-      const amount = parseFloat(sale.totalPrice || 0);
+      const amount = parseFloat(sale.total || 0);
       totals.overall += amount;
 
       // Categorize by payment status
       if (sale.status === 'Hutang') {
-        totals.hutang += amount;
-      } else if (sale.paymentMethod === 'Online' || sale.paymentMethod === 'online') {
+        totals.hutangOriginal += amount;
+      } else if (sale.paymentType === 'online') {
         totals.online += amount;
-      } else {
-        // Default to cash for completed sales that aren't hutang or online
+      } else if (sale.paymentType === 'cash') {
         totals.cash += amount;
       }
     });
+
+    // Process repayments (hutang payments) - these are separate from original sales
+    filteredPayments.forEach(payment => {
+      const amount = parseFloat(payment.amount || 0);
+      totals.repayments.total += amount;
+
+      if (payment.paymentMethod === 'cash') {
+        totals.repayments.cash += amount;
+      } else if (payment.paymentMethod === 'online') {
+        totals.repayments.online += amount;
+      }
+
+    });
+
+    // Calculate outstanding hutang (original hutang minus repayments)
+    totals.hutangOutstanding = totals.hutangOriginal - totals.repayments.total;
 
     return totals;
   };
@@ -1670,6 +1746,9 @@ const Reports = () => {
                     <div className="total-info">
                       <span className="total-label">Cash</span>
                       <span className="total-amount">{formatCurrency(getPaymentMethodTotals().cash)}</span>
+                      {getPaymentMethodTotals().repayments.cash > 0 && (
+                        <small className="repayment-note">Repayments: {formatCurrency(getPaymentMethodTotals().repayments.cash)}</small>
+                      )}
                     </div>
                   </div>
                   <div className="total-card online">
@@ -1677,15 +1756,27 @@ const Reports = () => {
                     <div className="total-info">
                       <span className="total-label">Online</span>
                       <span className="total-amount">{formatCurrency(getPaymentMethodTotals().online)}</span>
+                      {getPaymentMethodTotals().repayments.online > 0 && (
+                        <small className="repayment-note">Repayments: {formatCurrency(getPaymentMethodTotals().repayments.online)}</small>
+                      )}
                     </div>
                   </div>
                   <div className="total-card hutang">
                     <div className="total-icon">📝</div>
                     <div className="total-info">
-                      <span className="total-label">Hutang</span>
-                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().hutang)}</span>
+                      <span className="total-label">Hutang Outstanding</span>
+                      <span className="total-amount">{formatCurrency(getPaymentMethodTotals().hutangOutstanding)}</span>
                     </div>
                   </div>
+                  {getPaymentMethodTotals().repayments.total > 0 && (
+                    <div className="total-card repayments">
+                      <div className="total-icon">🔄</div>
+                      <div className="total-info">
+                        <span className="total-label">Total Repayments</span>
+                        <span className="total-amount">{formatCurrency(getPaymentMethodTotals().repayments.total)}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="total-card overall">
                     <div className="total-icon">🏆</div>
                     <div className="total-info">
@@ -1696,6 +1787,9 @@ const Reports = () => {
                 </div>
                 <div className="totals-info">
                   <small>💡 Showing totals for {getFilteredSalesData().length} sales records in selected period</small>
+                  {getPaymentMethodTotals().repayments.total > 0 && (
+                    <small className="repayments-info">📋 Hutang shows outstanding balance after repayments</small>
+                  )}
                 </div>
               </div>
 
