@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
-import { collection, getDocs, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc, query, where, writeBatch } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -41,7 +41,7 @@ const Settings = () => {
     navigate(`/settings?tab=${tab}`);
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       const usersSnapshot = await getDocs(collection(db, 'users'));
@@ -49,20 +49,60 @@ const Settings = () => {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Ensure current user is included in the list
+      if (user) {
+        const currentUserExists = usersData.some(userData => userData.id === user.uid || userData.email === user.email);
+        
+        if (!currentUserExists) {
+          // Add current user to the list with their role from AuthContextWrapper
+          usersData.unshift({
+            id: user.uid,
+            email: user.email,
+            displayName: user.displayName || '',
+            role: userRole,
+            createdAt: user.metadata?.creationTime ? new Date(user.metadata.creationTime) : new Date(),
+            isCurrentUser: true // Flag to indicate this is the current user
+          });
+        }
+      }
+      
       setUsers(usersData);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [user, userRole]);
 
   const updateUserRole = async (userId, newRole) => {
     try {
-      await updateDoc(doc(db, 'users', userId), {
-        role: newRole,
-        updatedAt: new Date()
-      });
+      // If this is the current user and they don't have a Firestore document, create one
+      if (user && userId === user.uid) {
+        const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', userId)));
+        if (userDoc.empty) {
+          // Create user document if it doesn't exist
+          await setDoc(doc(db, 'users', userId), {
+            email: user.email,
+            displayName: user.displayName || '',
+            role: newRole,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        } else {
+          // Update existing document
+          await updateDoc(doc(db, 'users', userId), {
+            role: newRole,
+            updatedAt: new Date()
+          });
+        }
+      } else {
+        // Update existing document
+        await updateDoc(doc(db, 'users', userId), {
+          role: newRole,
+          updatedAt: new Date()
+        });
+      }
       await fetchUsers(); // Refresh the list
       showSuccess('User role updated successfully!');
     } catch (error) {
@@ -276,7 +316,7 @@ const Settings = () => {
     if (activeTab === 'users' && hasRole('admin')) {
       fetchUsers();
     }
-  }, [activeTab, hasRole]);
+  }, [activeTab, hasRole, fetchUsers]);
 
   return (
     <div className="settings">
@@ -962,19 +1002,20 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
           <div className="loading">Loading users...</div>
         ) : (
           <div className="user-list">
-            {users.map(user => (
-              <div key={user.id} className="user-item">
+            {users.map(userItem => (
+              <div key={userItem.id} className={`user-item ${userItem.isCurrentUser ? 'current-user' : ''}`}>
                 <div className="user-info">
-                  <strong>{user.email}</strong>
-                  <span className={getRoleBadgeClass(user.role)}>
-                    {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Staff'}
+                  <strong>{userItem.email}</strong>
+                  {userItem.isCurrentUser && <span className="current-user-badge">You</span>}
+                  <span className={getRoleBadgeClass(userItem.role)}>
+                    {userItem.role?.charAt(0).toUpperCase() + userItem.role?.slice(1) || 'Staff'}
                   </span>
-                  {user.displayName && (
-                    <span className="user-display-name">({user.displayName})</span>
+                  {userItem.displayName && (
+                    <span className="user-display-name">({userItem.displayName})</span>
                   )}
                 </div>
                 <div className="user-actions">
-                  {editingUser?.id === user.id ? (
+                  {editingUser?.id === userItem.id ? (
                     <div className="edit-role-form">
                       <select 
                         value={newRole} 
@@ -1002,7 +1043,7 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
                   ) : (
                     <button 
                       className="btn btn-sm btn-secondary"
-                      onClick={() => handleEditRole(user)}
+                      onClick={() => handleEditRole(userItem)}
                     >
                       Edit Role
                     </button>

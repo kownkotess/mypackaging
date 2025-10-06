@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
 import ReturnToTop from './ReturnToTop';
+import ReportExpandModal from './ReportExpandModal';
 import { logActivity } from '../lib/auditLog';
 import { 
   collection, 
@@ -71,6 +72,14 @@ const Reports = () => {
   // Pagination for sales
   const [salesCurrentPage, setSalesCurrentPage] = useState(1);
   const [salesItemsPerPage] = useState(15); // Show 15 sales per page
+
+  // Modal states for expanded views
+  const [expandedModal, setExpandedModal] = useState({
+    isOpen: false,
+    title: '',
+    content: null,
+    icon: ''
+  });
 
   // Subscribe to data
   useEffect(() => {
@@ -593,6 +602,25 @@ const Reports = () => {
     }
   };
 
+  // Modal handler functions
+  const openExpandModal = (title, content, icon) => {
+    setExpandedModal({
+      isOpen: true,
+      title,
+      content,
+      icon
+    });
+  };
+
+  const closeExpandModal = () => {
+    setExpandedModal({
+      isOpen: false,
+      title: '',
+      content: null,
+      icon: ''
+    });
+  };
+
   const handleDeleteSale = async (sale) => {
     showConfirm(
       `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\n\nThis action cannot be undone.`,
@@ -786,7 +814,33 @@ const Reports = () => {
 
             {/* Cash Flow */}
             <div className="report-card full-width">
-              <h3>💸 Cash Flow Analysis</h3>
+              <h3>
+                <span className="report-card-title">💸 Cash Flow Analysis</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Cash Flow Analysis', 
+                    <div className="expanded-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={cashFlow}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis tickFormatter={(value) => `RM ${value}`} />
+                          <Tooltip formatter={(value) => [formatCurrency(value)]} />
+                          <Legend />
+                          <Area type="monotone" dataKey="inflow" stackId="1" stroke="#82ca9d" fill="#82ca9d" name="Cash In" />
+                          <Area type="monotone" dataKey="outflow" stackId="2" stroke="#ff7c7c" fill="#ff7c7c" name="Cash Out" />
+                          <Line type="monotone" dataKey="net" stroke="#8884d8" strokeWidth={3} name="Net Cash" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>,
+                    '💸'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={cashFlow}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -803,7 +857,41 @@ const Reports = () => {
 
             {/* Hutang Aging & Tax Summary */}
             <div className="report-card">
-              <h3>⏰ Hutang Aging Analysis</h3>
+              <h3>
+                <span className="report-card-title">⏰ Hutang Aging Analysis</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Hutang Aging Analysis', 
+                    <div className="expanded-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={hutangAging}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent, value }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
+                            outerRadius={120}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {hutangAging.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => formatCurrency(value)} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>,
+                    '⏰'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -826,7 +914,45 @@ const Reports = () => {
             </div>
 
             <div className="report-card">
-              <h3>🧾 Tax Summary</h3>
+              <h3>
+                <span className="report-card-title">🧾 Tax Summary</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Tax Summary', 
+                    <div className="expanded-tax-summary">
+                      <div className="tax-details">
+                        <div className="tax-section">
+                          <h4>📋 Period Summary</h4>
+                          <div className="tax-item large">
+                            <span>Period:</span>
+                            <span>{taxSummary.period}</span>
+                          </div>
+                        </div>
+                        <div className="tax-section">
+                          <h4>💰 Revenue Details</h4>
+                          <div className="tax-item large">
+                            <span>Total Sales:</span>
+                            <span>{formatCurrency(taxSummary.totalSales)}</span>
+                          </div>
+                          <div className="tax-item large">
+                            <span>GST Collected (6%):</span>
+                            <span>{formatCurrency(taxSummary.gstCollected)}</span>
+                          </div>
+                          <div className="tax-item large">
+                            <span>Total Tax Liability:</span>
+                            <span>{formatCurrency(taxSummary.totalTax)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>,
+                    '🧾'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="tax-summary">
                 <div className="tax-item">
                   <span>Period:</span>
@@ -853,7 +979,45 @@ const Reports = () => {
           <div className="business-insights">
             {/* Customer Patterns */}
             <div className="report-card">
-              <h3>👥 Top Customers</h3>
+              <h3>
+                <span className="report-card-title">👥 Top Customers</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Top Customers', 
+                    <div className="expanded-table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Rank</th>
+                            <th>Customer</th>
+                            <th>Total Spent</th>
+                            <th>Visits</th>
+                            <th>Avg Order</th>
+                            <th>Last Visit</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerPatterns.map((customer, index) => (
+                            <tr key={index}>
+                              <td>#{index + 1}</td>
+                              <td>{customer.name}</td>
+                              <td>{formatCurrency(customer.totalSpent)}</td>
+                              <td>{customer.visits}</td>
+                              <td>{formatCurrency(customer.avgOrderValue)}</td>
+                              <td>{customer.lastVisit || 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>,
+                    '👥'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -880,7 +1044,34 @@ const Reports = () => {
 
             {/* Peak Hours */}
             <div className="report-card">
-              <h3>🕐 Peak Sales Hours</h3>
+              <h3>
+                <span className="report-card-title">🕐 Peak Sales Hours</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Peak Sales Hours', 
+                    <div className="expanded-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={peakHours}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}:00`} />
+                          <YAxis />
+                          <Tooltip 
+                            labelFormatter={(hour) => `${hour}:00`}
+                            formatter={(value, name) => [name === 'sales' ? `${value} sales` : formatCurrency(value), name]}
+                          />
+                          <Legend />
+                          <Bar dataKey="sales" fill="#8884d8" name="Sales Count" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>,
+                    '🕐'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={peakHours}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -897,7 +1088,33 @@ const Reports = () => {
 
             {/* Seasonal Trends */}
             <div className="report-card full-width">
-              <h3>📅 Seasonal Trends</h3>
+              <h3>
+                <span className="report-card-title">📅 Seasonal Trends</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Seasonal Trends', 
+                    <div className="expanded-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={seasonalTrends}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis yAxisId="left" tickFormatter={(value) => `RM ${value}`} />
+                          <YAxis yAxisId="right" orientation="right" />
+                          <Tooltip formatter={(value, name) => [name === 'sales' ? `${value} sales` : formatCurrency(value), name]} />
+                          <Legend />
+                          <Bar yAxisId="left" dataKey="revenue" fill="#82ca9d" name="Revenue" />
+                          <Line yAxisId="right" type="monotone" dataKey="sales" stroke="#8884d8" name="Sales Count" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>,
+                    '📅'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={seasonalTrends}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -914,7 +1131,51 @@ const Reports = () => {
 
             {/* ROI Analysis */}
             <div className="report-card">
-              <h3>💎 Product ROI</h3>
+              <h3>
+                <span className="report-card-title">💎 Product ROI</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Product ROI Analysis', 
+                    <div className="expanded-table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Rank</th>
+                            <th>Product</th>
+                            <th>Revenue</th>
+                            <th>ROI %</th>
+                            <th>Profit</th>
+                            <th>Margin</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roiData.map((product, index) => (
+                            <tr key={index}>
+                              <td>#{index + 1}</td>
+                              <td>{product.name}</td>
+                              <td>{formatCurrency(product.revenue)}</td>
+                              <td className={product.roi >= 0 ? 'profit' : 'loss'}>
+                                {product.roi.toFixed(1)}%
+                              </td>
+                              <td className={product.profit >= 0 ? 'profit' : 'loss'}>
+                                {formatCurrency(product.profit)}
+                              </td>
+                              <td className={product.roi >= 20 ? 'profit' : product.roi >= 10 ? 'warning' : 'loss'}>
+                                {((product.profit / product.revenue) * 100).toFixed(1)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>,
+                    '💎'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -949,7 +1210,55 @@ const Reports = () => {
           <div className="inventory-intelligence">
             {/* Low Stock Alerts */}
             <div className="report-card">
-              <h3>⚠️ Low Stock Alerts</h3>
+              <h3>
+                <span className="report-card-title">⚠️ Low Stock Alerts</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Low Stock Alerts', 
+                    <div className="expanded-table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Priority</th>
+                            <th>Product</th>
+                            <th>Current Stock</th>
+                            <th>Reorder Point</th>
+                            <th>Status</th>
+                            <th>Days Out</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lowStockAlerts.map((product, index) => (
+                            <tr key={product.id}>
+                              <td>
+                                <span className={product.stockBalance <= 0 ? 'priority-critical' : 'priority-high'}>
+                                  {product.stockBalance <= 0 ? '🔴 Critical' : '🟡 High'}
+                                </span>
+                              </td>
+                              <td>{product.name}</td>
+                              <td className={product.stockBalance <= 0 ? 'danger' : 'warning'}>
+                                {product.stockBalance} units
+                              </td>
+                              <td>{product.reorderPoint} units</td>
+                              <td>
+                                <span className={product.stockBalance <= 0 ? 'status-danger' : 'status-warning'}>
+                                  {product.stockBalance <= 0 ? 'Out of Stock' : 'Low Stock'}
+                                </span>
+                              </td>
+                              <td>{product.stockBalance <= 0 ? Math.abs(product.stockBalance) : 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>,
+                    '⚠️'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -982,7 +1291,31 @@ const Reports = () => {
 
             {/* Stock Movement */}
             <div className="report-card">
-              <h3>📊 Stock Turnover Analysis</h3>
+              <h3>
+                <span className="report-card-title">📊 Stock Turnover Analysis</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Stock Turnover Analysis', 
+                    <div className="expanded-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={stockMovementAnalysis}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} />
+                          <YAxis />
+                          <Tooltip formatter={(value) => [`${value.toFixed(2)} times/year`, 'Turnover Rate']} />
+                          <Legend />
+                          <Bar dataKey="turnover" fill="#ffc658" name="Turnover Rate" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>,
+                    '📊'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={stockMovementAnalysis.slice(0, 10)}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -996,7 +1329,53 @@ const Reports = () => {
 
             {/* Product Performance */}
             <div className="report-card">
-              <h3>🏆 Product Performance</h3>
+              <h3>
+                <span className="report-card-title">🏆 Product Performance</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Product Performance', 
+                    <div className="expanded-table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Rank</th>
+                            <th>Product</th>
+                            <th>Revenue</th>
+                            <th>Qty Sold</th>
+                            <th>Avg Price</th>
+                            <th>Status</th>
+                            <th>Growth</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productPerformance.map((product, index) => (
+                            <tr key={index}>
+                              <td>#{index + 1}</td>
+                              <td>{product.name}</td>
+                              <td>{formatCurrency(product.revenue)}</td>
+                              <td>{product.quantity}</td>
+                              <td>{formatCurrency(product.avgPrice)}</td>
+                              <td>
+                                <span className={`status-${product.performance.toLowerCase()}`}>
+                                  {product.performance}
+                                </span>
+                              </td>
+                              <td className={product.revenue > 1000 ? 'profit' : 'warning'}>
+                                {product.revenue > 1000 ? '↗️ Growing' : '→ Stable'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>,
+                    '🏆'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -1029,7 +1408,54 @@ const Reports = () => {
 
             {/* Dead Stock */}
             <div className="report-card">
-              <h3>💀 Dead Stock Analysis</h3>
+              <h3>
+                <span className="report-card-title">💀 Dead Stock Analysis</span>
+                <button 
+                  className="expand-icon" 
+                  onClick={() => openExpandModal(
+                    'Dead Stock Analysis', 
+                    <div className="expanded-table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Stock Balance</th>
+                            <th>Unit Price</th>
+                            <th>Total Value</th>
+                            <th>Days Since Sale</th>
+                            <th>Risk Level</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deadStock.map(product => (
+                            <tr key={product.id}>
+                              <td>{product.name}</td>
+                              <td className="warning">{product.stockBalance} units</td>
+                              <td>{formatCurrency(product.unitPrice)}</td>
+                              <td className="danger">{formatCurrency(product.value)}</td>
+                              <td>60+ days</td>
+                              <td>
+                                <span className="status-danger">
+                                  🔴 High Risk
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="dead-stock-summary">
+                        <h4>💰 Summary</h4>
+                        <p>Total Dead Stock Value: <strong>{formatCurrency(deadStock.reduce((sum, product) => sum + product.value, 0))}</strong></p>
+                        <p>Items at Risk: <strong>{deadStock.length} products</strong></p>
+                      </div>
+                    </div>,
+                    '💀'
+                  )}
+                  title="Expand view"
+                >
+                  ↗️
+                </button>
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -1271,6 +1697,16 @@ const Reports = () => {
       
       {/* Return to Top Button */}
       <ReturnToTop />
+      
+      {/* Expanded View Modal */}
+      <ReportExpandModal
+        isOpen={expandedModal.isOpen}
+        onClose={closeExpandModal}
+        title={expandedModal.title}
+        icon={expandedModal.icon}
+      >
+        {expandedModal.content}
+      </ReportExpandModal>
     </div>
   );
 };

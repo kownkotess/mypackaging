@@ -263,10 +263,26 @@
   background: white;
 }
 
+.user-item.current-user {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(0, 77, 36, 0.05) 0%, rgba(251, 176, 64, 0.05) 100%);
+  box-shadow: 0 2px 4px rgba(0, 77, 36, 0.1);
+}
+
 .user-info {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.current-user-badge {
+  background: var(--primary-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .role-badge {

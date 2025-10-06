@@ -258,7 +258,24 @@ export const useStockMonitoring = () => {
       const stockBalance = product.stockBalance || 0;
       const unitPrice = product.unitPrice || 0;
 
-      metrics[status.replace('-', '')]++;
+      // Properly increment the metrics based on status
+      switch (status) {
+        case 'out-of-stock':
+          metrics.outOfStock++;
+          break;
+        case 'critical-low':
+          metrics.criticalLow++;
+          break;
+        case 'low-stock':
+          metrics.lowStock++;
+          break;
+        case 'normal':
+          metrics.normal++;
+          break;
+        default:
+          metrics.normal++;
+      }
+
       totalStock += stockBalance;
       totalValue += stockBalance * unitPrice;
 

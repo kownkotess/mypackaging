@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { db } from '../firebase';
+import ReportExpandModal from './ReportExpandModal';
 import '../styles/Analytics.css';
 
 const Analytics = () => {
@@ -42,6 +43,14 @@ const Analytics = () => {
   const [stockMovement, setStockMovement] = useState([]);
   const [customerInsights, setCustomerInsights] = useState([]);
   const [hutangAging, setHutangAging] = useState([]);
+
+  // Modal state
+  const [expandedModal, setExpandedModal] = useState({
+    isOpen: false,
+    title: '',
+    content: null,
+    icon: ''
+  });
 
   // Subscribe to all data
   useEffect(() => {
@@ -338,6 +347,25 @@ const Analytics = () => {
     }).format(amount || 0);
   };
 
+  // Modal handler functions
+  const openExpandModal = (title, content, icon) => {
+    setExpandedModal({
+      isOpen: true,
+      title,
+      content,
+      icon
+    });
+  };
+
+  const closeExpandModal = () => {
+    setExpandedModal({
+      isOpen: false,
+      title: '',
+      content: null,
+      icon: ''
+    });
+  };
+
   if (loading) {
     return (
       <div className="analytics-container">
@@ -408,7 +436,31 @@ const Analytics = () => {
       <div className="charts-grid">
         {/* Sales Trends */}
         <div className="chart-card full-width">
-          <h3>📈 Sales Trends</h3>
+          <h3>
+            <span className="report-card-title">📈 Sales Trends</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Sales Trends', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={salesTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis tickFormatter={(value) => `RM ${value}`} />
+                      <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                      <Legend />
+                      <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>,
+                '📈'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={salesTrends}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -423,7 +475,31 @@ const Analytics = () => {
 
         {/* Top Products */}
         <div className="chart-card">
-          <h3>🏆 Top Products</h3>
+          <h3>
+            <span className="report-card-title">🏆 Top Products</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Top Products', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topProducts} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
+                      <YAxis dataKey="name" type="category" width={120} />
+                      <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                      <Legend />
+                      <Bar dataKey="revenue" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>,
+                '🏆'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topProducts.slice(0, 5)} layout="horizontal">
               <CartesianGrid strokeDasharray="3 3" />
@@ -437,7 +513,41 @@ const Analytics = () => {
 
         {/* Payment Breakdown */}
         <div className="chart-card">
-          <h3>💳 Payment Methods</h3>
+          <h3>
+            <span className="report-card-title">💳 Payment Methods</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Payment Methods Breakdown', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent, value }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {paymentBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>,
+                '💳'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -461,7 +571,33 @@ const Analytics = () => {
 
         {/* Profit Analysis */}
         <div className="chart-card full-width">
-          <h3>💹 Profit Analysis</h3>
+          <h3>
+            <span className="report-card-title">💹 Profit Analysis</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Profit Analysis', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={profitData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis tickFormatter={(value) => `RM ${value}`} />
+                      <Tooltip formatter={(value) => [formatCurrency(value)]} />
+                      <Legend />
+                      <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Revenue" strokeWidth={2} />
+                      <Line type="monotone" dataKey="costs" stroke="#ff7c7c" name="Costs" strokeWidth={2} />
+                      <Line type="monotone" dataKey="profit" stroke="#82ca9d" name="Profit" strokeWidth={4} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>,
+                '💹'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={profitData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -478,7 +614,31 @@ const Analytics = () => {
 
         {/* Stock Movement */}
         <div className="chart-card">
-          <h3>📦 Stock Turnover</h3>
+          <h3>
+            <span className="report-card-title">📦 Stock Turnover</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Stock Turnover Analysis', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stockMovement}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} />
+                      <YAxis />
+                      <Tooltip formatter={(value) => [`${value.toFixed(2)} times/year`, 'Turnover Rate']} />
+                      <Legend />
+                      <Bar dataKey="turnover" fill="#ffc658" name="Turnover Rate" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>,
+                '📦'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stockMovement.slice(0, 5)}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -492,7 +652,41 @@ const Analytics = () => {
 
         {/* Hutang Aging */}
         <div className="chart-card">
-          <h3>⏰ Hutang Aging</h3>
+          <h3>
+            <span className="report-card-title">⏰ Hutang Aging</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Hutang Aging Analysis', 
+                <div className="expanded-chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={hutangAging}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent, value }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {hutangAging.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>,
+                '⏰'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -519,7 +713,53 @@ const Analytics = () => {
       <div className="tables-grid">
         {/* Low Stock Alert */}
         <div className="table-card">
-          <h3>⚠️ Low Stock Alert</h3>
+          <h3>
+            <span className="report-card-title">⚠️ Low Stock Alert</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Low Stock Alert', 
+                <div className="expanded-table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Current Stock</th>
+                        <th>Reorder Point</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lowStockProducts.map(product => (
+                        <tr key={product.id}>
+                          <td>{product.name}</td>
+                          <td className={product.stockBalance <= 0 ? 'danger' : 'warning'}>
+                            {product.stockBalance} units
+                          </td>
+                          <td>{product.reorderPoint} units</td>
+                          <td>
+                            <span className={product.stockBalance <= 0 ? 'status-danger' : 'status-warning'}>
+                              {product.stockBalance <= 0 ? 'Out of Stock' : 'Low Stock'}
+                            </span>
+                          </td>
+                          <td>
+                            <Link to="/purchases" className="action-button">
+                              Reorder
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>,
+                '⚠️'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <div className="table-container">
             <table>
               <thead>
@@ -552,7 +792,45 @@ const Analytics = () => {
 
         {/* Top Customers */}
         <div className="table-card">
-          <h3>👥 Top Customers</h3>
+          <h3>
+            <span className="report-card-title">👥 Top Customers</span>
+            <button 
+              className="expand-icon" 
+              onClick={() => openExpandModal(
+                'Top Customers Analysis', 
+                <div className="expanded-table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Customer</th>
+                        <th>Total Spent</th>
+                        <th>Visits</th>
+                        <th>Avg Order</th>
+                        <th>Last Visit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customerInsights.map((customer, index) => (
+                        <tr key={index}>
+                          <td>#{index + 1}</td>
+                          <td>{customer.name}</td>
+                          <td>{formatCurrency(customer.totalSpent)}</td>
+                          <td>{customer.visits}</td>
+                          <td>{formatCurrency(customer.avgSpent)}</td>
+                          <td>{customer.lastVisit || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>,
+                '👥'
+              )}
+              title="Expand view"
+            >
+              ↗️
+            </button>
+          </h3>
           <div className="table-container">
             <table>
               <thead>
@@ -577,6 +855,16 @@ const Analytics = () => {
           </div>
         </div>
       </div>
+
+      {/* Expanded View Modal */}
+      <ReportExpandModal
+        isOpen={expandedModal.isOpen}
+        onClose={closeExpandModal}
+        title={expandedModal.title}
+        icon={expandedModal.icon}
+      >
+        {expandedModal.content}
+      </ReportExpandModal>
     </div>
   );
 };

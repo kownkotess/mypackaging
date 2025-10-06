@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStockMonitoring } from '../hooks/useStockMonitoring';
 import { useAlert } from '../context/AlertContext';
+import ReturnToTop from './ReturnToTop';
 import './StockMonitoring.css';
 
 const StockMonitoring = () => {
@@ -410,6 +411,9 @@ const StockMonitoring = () => {
           </div>
         </div>
       )}
+
+      {/* Return to Top Button */}
+      <ReturnToTop />
     </div>
   );
 };

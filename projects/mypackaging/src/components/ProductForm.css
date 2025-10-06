@@ -22,27 +22,28 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
-.modal-header {
+.product-form-modal .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px 25px;
   border-bottom: 1px solid #e9ecef;
-  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
+  background: #004D24 !important;
   color: white;
   border-radius: 12px 12px 0 0;
 }
 
-.modal-header h2 {
+.product-form-modal .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+  color: #FBB040 !important;
 }
 
-.close-btn {
+.product-form-modal .close-btn {
   background: none;
   border: none;
-  color: white;
+  color: #FBB040 !important;
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -55,8 +56,8 @@
   transition: background-color 0.2s ease;
 }
 
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+.product-form-modal .close-btn:hover {
+  background: rgba(251, 176, 64, 0.1) !important;
 }
 
 .product-form {
@@ -107,8 +108,8 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #004D24;
-  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
+  border-color: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
 }
 
 .form-group small {
@@ -165,7 +166,14 @@
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #004D24 0%, #006B32 100%);
+  background: #28a745;
+  border: 2px solid #28a745;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #218838;
+  border-color: #218838;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .btn.secondary {
@@ -231,8 +239,8 @@
 
 .description-textarea:focus {
   outline: none;
-  border-color: #004D24;
-  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
+  border-color: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
 }
 
 .description-textarea::placeholder {
