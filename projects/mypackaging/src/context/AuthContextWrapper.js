@@ -44,7 +44,7 @@ export const AuthWrapperProvider = ({ children }) => {
       sales: ['view', 'create', 'edit'],
       purchases: ['view', 'create', 'edit'],
       hutang: ['view', 'create', 'edit'],
-      reports: ['view', 'create'],
+      reports: ['view', 'create', 'edit'], // Added 'edit' permission for managers
       analytics: ['view']
     },
     staff: {
