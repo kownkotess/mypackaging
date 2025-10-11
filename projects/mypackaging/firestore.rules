@@ -39,7 +39,7 @@ service cloud.firestore {
     // Admin: full access | Manager: view, create, edit | Staff: view only (for QR scanning)
     match /products/{productId} {
       allow read: if isAuthenticated();
-      allow create, update: if isManagerOrAdmin();
+      allow create, update: if isManagerOrAdmin() || isStaff();
       allow delete: if isAdmin();
     }
     
@@ -48,14 +48,14 @@ service cloud.firestore {
     match /sales/{saleId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin() || isStaff();
       allow delete: if isAdmin();
       
       // Line items subcollection
       match /lineItems/{lineItemId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
-        allow update: if isManagerOrAdmin();
+        allow update: if isManagerOrAdmin() || isStaff();
         allow delete: if isAdmin();
       }
       

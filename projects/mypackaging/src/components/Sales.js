@@ -25,6 +25,7 @@ const Sales = () => {
   const [paidAmount, setPaidAmount] = useState('');
   const [deduction, setDeduction] = useState('');
   const [saleDate, setSaleDate] = useState(''); // Optional date for backdating
+  const [saleTime, setSaleTime] = useState(''); // Optional time for backdating
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [completedSale, setCompletedSale] = useState(null);
   const [receiptNumber, setReceiptNumber] = useState('');
@@ -249,6 +250,22 @@ const Sales = () => {
   }, [paidAmount, selectedProducts, deduction, paymentMethod]);
 
   const handleSubmitSale = async (e) => {
+    // Prepare sale date and time
+    let customDate = null;
+    if (saleDate) {
+      if (saleTime) {
+        // Combine date and time
+        const [year, month, day] = saleDate.split('-');
+        const [hour = '08', minute = '00'] = saleTime.split(':');
+        customDate = new Date(year, month - 1, day, hour, minute);
+      } else {
+        // Use date, default to 08:00
+        const [year, month, day] = saleDate.split('-');
+        customDate = new Date(year, month - 1, day, 8, 0);
+      }
+    } else {
+      customDate = new Date();
+    }
     e.preventDefault();
     
     if (selectedProducts.length === 0) {
@@ -302,7 +319,7 @@ const Sales = () => {
         remaining,
         status: remaining > 0 ? 'Hutang' : 'Paid',
         customerName: customerName.trim() || 'Walk In',
-        customDate: saleDate || null, // Add custom date if provided
+  customDate,
         createdBy: user?.email || 'Unknown',
         items: selectedProducts.map(item => ({
           productId: item.productId,
@@ -355,7 +372,8 @@ const Sales = () => {
       setCustomerName('');
       setPaidAmount('');
       setDeduction('');
-      setSaleDate(''); // Reset sale date
+  setSaleDate(''); // Reset sale date
+  setSaleTime(''); // Reset sale time
       setPaymentMethod('cash');
       
       // Reload products to get updated stock
@@ -585,13 +603,22 @@ const Sales = () => {
 
                   <div className="form-group">
                     <label>Sale Date (Optional)</label>
-                    <input
-                      type="date"
-                      value={saleDate}
-                      onChange={(e) => setSaleDate(e.target.value)}
-                      placeholder="Leave empty for current date"
-                    />
-                    <small className="form-help">Leave empty to use current date</small>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        value={saleDate}
+                        onChange={(e) => setSaleDate(e.target.value)}
+                        placeholder="Leave empty for current date"
+                      />
+                      <input
+                        type="time"
+                        value={saleTime}
+                        onChange={(e) => setSaleTime(e.target.value)}
+                        placeholder="Leave empty for current time"
+                        style={{ minWidth: '120px' }}
+                      />
+                    </div>
+                    <small className="form-help">Leave empty to use current date and time</small>
                   </div>
 
 

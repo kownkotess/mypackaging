@@ -496,7 +496,7 @@ const Reports = () => {
         Customer: sale.customerName || 'Walk-in',
         Total: `RM ${sale.total || 0}`,
         Payment: sale.paymentType || 'cash',
-        Status: sale.status || 'Paid'
+        Status: sale.status === 'Hutang' ? 'Hutang' : (sale.paymentType === 'cash' ? 'Cash' : (sale.paymentType === 'online' ? 'Online' : 'Paid'))
       }));
       
       const salesWS = XLSX.utils.json_to_sheet(salesData);
@@ -1852,7 +1852,13 @@ const Reports = () => {
                             </td>
                             <td>
                               <span className={`status-badge ${sale.status.toLowerCase()}`}>
-                                {sale.status}
+                                {sale.status === 'Hutang'
+                                  ? 'Hutang'
+                                  : sale.paymentType === 'cash'
+                                    ? 'Cash'
+                                    : sale.paymentType === 'online'
+                                      ? 'Online'
+                                      : sale.status}
                               </span>
                             </td>
                             <td>
