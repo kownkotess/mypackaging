@@ -155,6 +155,15 @@ const Reports = () => {
 
   // Calculate reports when data changes
   const calculateFinancialReports = useCallback(() => {
+    // DEBUG: Show purchase items and quantities
+    console.log('DEBUG: Purchases for financial report:', purchases);
+    purchases.forEach(purchase => {
+      if (purchase.items) {
+        purchase.items.forEach(item => {
+          console.log(`DEBUG: Purchase item - cost: ${item.cost}, quantity: ${item.quantity}`);
+        });
+      }
+    });
     if (!sales.length && !products.length) return;
 
     const now = new Date();
@@ -169,7 +178,7 @@ const Reports = () => {
     // Profit & Loss
     const totalRevenue = periodSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
     const totalCosts = periodPurchases.reduce((sum, purchase) => {
-      return sum + (purchase.items?.reduce((itemSum, item) => itemSum + (item.cost || 0), 0) || 0);
+  return sum + (purchase.items?.reduce((itemSum, item) => itemSum + ((item.cost || 0) * (item.qty || 1)), 0) || 0);
     }, 0);
     const grossProfit = totalRevenue - totalCosts;
     const netProfit = grossProfit;
