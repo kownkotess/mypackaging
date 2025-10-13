@@ -29,6 +29,9 @@ function Shop() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sourceSearchTerm, setSourceSearchTerm] = useState('');
+  const [targetSearchTerm, setTargetSearchTerm] = useState('');
+  const [auditSearchTerm, setAuditSearchTerm] = useState('');
 
   // Shop Use state
   const [shopUses, setShopUses] = useState([]);
@@ -335,6 +338,8 @@ function Shop() {
     setTargetQty('');
     setConversionRate('');
     setTransferNotes('');
+    setSourceSearchTerm('');
+    setTargetSearchTerm('');
     setShowTransferForm(false);
   };
 
@@ -460,12 +465,28 @@ function Shop() {
     setAuditActualStock('');
     setAuditReason('');
     setAuditPassword('');
+    setAuditSearchTerm('');
     setShowAuditForm(false);
   };
 
-  // Filter products for search
+  // Filter products for search (Shop Use tab)
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter products for Transfer tab (Source)
+  const filteredSourceProducts = products.filter(product =>
+    product.name.toLowerCase().includes(sourceSearchTerm.toLowerCase())
+  );
+
+  // Filter products for Transfer tab (Target)
+  const filteredTargetProducts = products.filter(product =>
+    product.name.toLowerCase().includes(targetSearchTerm.toLowerCase())
+  );
+
+  // Filter products for Audit tab
+  const filteredAuditProducts = products.filter(product =>
+    product.name.toLowerCase().includes(auditSearchTerm.toLowerCase())
   );
 
   // Get current product stock for audit
@@ -717,18 +738,38 @@ function Shop() {
                   <h3>From (Source)</h3>
                   <div className="form-group">
                     <label>Source Product: *</label>
-                    <select
-                      value={sourceProduct}
-                      onChange={(e) => setSourceProduct(e.target.value)}
-                      required
-                    >
-                      <option value="">Select product...</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} (Stock: {product.stockBalance})
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={sourceProduct ? products.find(p => p.id === sourceProduct)?.name || '' : sourceSearchTerm}
+                      onChange={(e) => {
+                        setSourceSearchTerm(e.target.value);
+                        if (sourceProduct) setSourceProduct('');
+                      }}
+                      placeholder="Search source product..."
+                      required={!sourceProduct}
+                    />
+                    {sourceSearchTerm && !sourceProduct && (
+                      <div className="product-search-results">
+                        {filteredSourceProducts.map(product => (
+                          <div key={product.id} className="product-search-item">
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span className="stock-info">Stock: {product.stockBalance}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSourceProduct(product.id);
+                                setSourceSearchTerm('');
+                              }}
+                              className="btn-add-product"
+                            >
+                              Select
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Source Quantity: *</label>
@@ -765,18 +806,38 @@ function Shop() {
                   <h3>To (Target)</h3>
                   <div className="form-group">
                     <label>Target Product: *</label>
-                    <select
-                      value={targetProduct}
-                      onChange={(e) => setTargetProduct(e.target.value)}
-                      required
-                    >
-                      <option value="">Select product...</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} (Stock: {product.stockBalance})
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={targetProduct ? products.find(p => p.id === targetProduct)?.name || '' : targetSearchTerm}
+                      onChange={(e) => {
+                        setTargetSearchTerm(e.target.value);
+                        if (targetProduct) setTargetProduct('');
+                      }}
+                      placeholder="Search target product..."
+                      required={!targetProduct}
+                    />
+                    {targetSearchTerm && !targetProduct && (
+                      <div className="product-search-results">
+                        {filteredTargetProducts.map(product => (
+                          <div key={product.id} className="product-search-item">
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span className="stock-info">Stock: {product.stockBalance}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetProduct(product.id);
+                                setTargetSearchTerm('');
+                              }}
+                              className="btn-add-product"
+                            >
+                              Select
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Target Quantity:</label>
@@ -879,18 +940,38 @@ function Shop() {
               <form onSubmit={handleSubmitAudit} className="shop-form">
                 <div className="form-group">
                   <label>Product: *</label>
-                  <select
-                    value={auditProduct}
-                    onChange={(e) => setAuditProduct(e.target.value)}
-                    required
-                  >
-                    <option value="">Select product...</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} (Current: {product.stockBalance})
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={auditProduct ? products.find(p => p.id === auditProduct)?.name || '' : auditSearchTerm}
+                    onChange={(e) => {
+                      setAuditSearchTerm(e.target.value);
+                      if (auditProduct) setAuditProduct('');
+                    }}
+                    placeholder="Search product..."
+                    required={!auditProduct}
+                  />
+                  {auditSearchTerm && !auditProduct && (
+                    <div className="product-search-results">
+                      {filteredAuditProducts.map(product => (
+                        <div key={product.id} className="product-search-item">
+                          <div>
+                            <strong>{product.name}</strong>
+                            <span className="stock-info">Stock: {product.stockBalance}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuditProduct(product.id);
+                              setAuditSearchTerm('');
+                            }}
+                            className="btn-add-product"
+                          >
+                            Select
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {auditProductData && (
