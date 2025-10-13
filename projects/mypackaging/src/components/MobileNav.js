@@ -25,11 +25,14 @@ const MobileNav = () => {
       <div className="mobile-header">
         <div className="mobile-header-content">
           <div className="mobile-logo-section">
-            <span className="mobile-app-name">MyPackaging</span>
-            <span className="mobile-role-badge">{userRole}</span>
+            <div className="mobile-app-name">
+              <span className="app-name-main">MYPACKAGING</span>
+              <span className="app-name-sub">bybellestore</span>
+            </div>
           </div>
           
           <div className="mobile-header-actions">
+            <span className="mobile-role-badge">{userRole}</span>
             <NotificationDropdown />
             <button 
               className="mobile-menu-toggle"
