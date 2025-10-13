@@ -630,6 +630,157 @@ export const getUniqueCustomerNames = async () => {
   }
 };
 
+// ============================================
+// RETURNS OPERATIONS (Task 1)
+// ============================================
+
+// Create a return - this will DECREASE product stock (items sent back to supplier)
+// and increment totalReturned. Deletion of the return will restore stock.
+export const createReturn = async (returnData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // STEP 1: READ ALL PRODUCTS FIRST
+      const productReads = [];
+      const productRefs = [];
+      const stockUpdates = [];
+
+      if (returnData.items) {
+        for (const item of returnData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+
+        // Wait for all product reads to complete
+        const productDocs = await Promise.all(productReads);
+
+        // Prepare stock updates (subtract quantities for returns)
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = returnData.items[i];
+          const productRef = productRefs[i];
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qty = Number(item.qty) || 0;
+
+            // Ensure we do not allow negative stock
+            const newStockBalance = Math.max(0, (productData.stockBalance || 0) - qty);
+            const newTotalReturned = (productData.totalReturned || 0) + qty;
+
+            stockUpdates.push({
+              ref: productRef,
+              stockBalance: newStockBalance,
+              totalReturned: newTotalReturned
+            });
+          } else {
+            throw new Error(`Product ${item.productId} not found`);
+          }
+        }
+      }
+
+      // STEP 2: PERFORM ALL WRITES
+      // Add return document
+      const returnsRef = collection(db, 'returns');
+      const returnDocRef = doc(returnsRef);
+
+      transaction.set(returnDocRef, {
+        ...returnData,
+        createdAt: returnData.customDate ? Timestamp.fromDate(new Date(returnData.customDate)) : serverTimestamp()
+      });
+
+      // Update product stock (subtract quantities)
+      stockUpdates.forEach(update => {
+        transaction.update(update.ref, {
+          stockBalance: update.stockBalance,
+          totalReturned: update.totalReturned,
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      return returnDocRef.id;
+    });
+  } catch (error) {
+    console.error('Error creating return:', error);
+    throw error;
+  }
+};
+
+// Subscribe to returns with real-time updates
+export const subscribeReturns = (callback) => {
+  const returnsRef = collection(db, 'returns');
+  const q = query(returnsRef, orderBy('createdAt', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const returns = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(returns);
+  }, (error) => {
+    console.error('Error subscribing to returns:', error);
+    callback([]);
+  });
+};
+
+// Delete a return - restore stock that was subtracted when the return was created (admin only)
+export const deleteReturn = async (returnId) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const returnRef = doc(db, 'returns', returnId);
+      const returnDoc = await transaction.get(returnRef);
+
+      if (!returnDoc.exists()) {
+        throw new Error('Return not found');
+      }
+
+      const returnData = returnDoc.data();
+
+      // STEP 1: Restore the stock that was subtracted when return was created
+      if (returnData.items) {
+        const productReads = [];
+        const productRefs = [];
+
+        for (const item of returnData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+
+        const productDocs = await Promise.all(productReads);
+
+        // Restore stock for each product
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = returnData.items[i];
+          const productRef = productRefs[i];
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qtyToRestore = Number(item.qty) || 0;
+
+            if (qtyToRestore > 0) {
+              transaction.update(productRef, {
+                stockBalance: (productData.stockBalance || 0) + qtyToRestore,
+                totalReturned: Math.max(0, (productData.totalReturned || 0) - qtyToRestore),
+                updatedAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      }
+
+      // STEP 2: Delete the return document
+      transaction.delete(returnRef);
+
+      return returnId;
+    });
+  } catch (error) {
+    console.error('Error deleting return:', error);
+    throw error;
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -640,6 +791,9 @@ const firestoreUtils = {
   createPurchase,
   updatePurchase,
   subscribePurchases,
+  createReturn,
+  subscribeReturns,
+  deleteReturn,
   bulkUpdateProducts,
   bulkStockAdjustment,
   getUniqueCustomerNames

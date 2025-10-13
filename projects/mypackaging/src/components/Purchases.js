@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { subscribeProducts, subscribePurchases, createPurchase, updatePurchase } from '../lib/firestore';
+import { Link, useLocation } from 'react-router-dom';
+import { subscribeProducts, subscribePurchases, createPurchase, updatePurchase, subscribeReturns, createReturn, deleteReturn } from '../lib/firestore';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
@@ -14,7 +14,16 @@ import '../styles/Purchases.css';
 
 function Purchases() {
   const { showSuccess, showError } = useAlert();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const location = useLocation();
+  
+  // Tab management - Check URL query params for initial tab
+  const getInitialTab = () => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') === 'returns' ? 'returns' : 'purchases';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab()); // 'purchases' or 'returns'
   
   // State for forms and data
   const [products, setProducts] = useState([]);
@@ -53,7 +62,24 @@ function Purchases() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // Show 10 purchases per page
 
-  // Subscribe to products and purchases
+  // ===== RETURNS STATE (Task 1) =====
+  const [returns, setReturns] = useState([]);
+  const [returnProducts, setReturnProducts] = useState([]);
+  const [returnSupplierName, setReturnSupplierName] = useState('');
+  const [returnReferenceNumber, setReturnReferenceNumber] = useState('');
+  const [returnNotes, setReturnNotes] = useState('');
+  const [returnDate, setReturnDate] = useState('');
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState(null);
+  const [showReturnDetailModal, setShowReturnDetailModal] = useState(false);
+  const [returnToDelete, setReturnToDelete] = useState(null);
+  const [showReturnDeleteConfirmation, setShowReturnDeleteConfirmation] = useState(false);
+  const [deletingReturn, setDeletingReturn] = useState(false);
+  const [returnSearchTerm, setReturnSearchTerm] = useState('');
+  const [returnSupplierSuggestions, setReturnSupplierSuggestions] = useState([]);
+  const [showReturnSuggestions, setShowReturnSuggestions] = useState(false);
+
+  // Subscribe to products, purchases, and returns
   useEffect(() => {
     const unsubscribeProducts = subscribeProducts((productsData) => {
       // Sort products alphabetically by name
@@ -82,9 +108,14 @@ function Purchases() {
       setUniqueSuppliers(suppliers);
     });
 
+    const unsubscribeReturns = subscribeReturns((returnsData) => {
+      setReturns(returnsData);
+    });
+
     return () => {
       unsubscribeProducts();
       unsubscribePurchases();
+      unsubscribeReturns();
     };
   }, []);
 
@@ -234,6 +265,228 @@ function Purchases() {
     }
     return 0;
   };
+
+  // ============================================
+  // RETURNS HELPER FUNCTIONS
+  // ============================================
+
+  // Add product to return
+  const addProductToReturn = (product) => {
+    if (!returnProducts.find(p => p.id === product.id)) {
+      setReturnProducts([...returnProducts, {
+        id: product.id,
+        name: product.name,
+        qty: 1,
+        currentStock: product.stockBalance || 0
+      }]);
+    }
+  };
+
+  // Remove product from return
+  const removeProductFromReturn = (productId) => {
+    setReturnProducts(returnProducts.filter(p => p.id !== productId));
+  };
+
+  // Update product in return
+  const updateProductInReturn = (productId, field, value) => {
+    setReturnProducts(returnProducts.map(product => {
+      if (product.id === productId) {
+        return { ...product, [field]: Number(value) || 0 };
+      }
+      return product;
+    }));
+  };
+
+  // Handle supplier name input for returns
+  const handleReturnSupplierNameChange = (value) => {
+    setReturnSupplierName(value);
+    
+    if (value.trim().length > 0) {
+      const filtered = uniqueSuppliers.filter(supplier =>
+        supplier.toLowerCase().includes(value.toLowerCase())
+      );
+      setReturnSupplierSuggestions(filtered);
+      setShowReturnSuggestions(filtered.length > 0);
+    } else {
+      setReturnSupplierSuggestions([]);
+      setShowReturnSuggestions(false);
+    }
+  };
+
+  // Select supplier for return
+  const selectReturnSupplier = (supplierName) => {
+    setReturnSupplierName(supplierName);
+    setShowReturnSuggestions(false);
+    setReturnSupplierSuggestions([]);
+  };
+
+  // Hide return suggestions
+  const handleReturnSupplierBlur = () => {
+    setTimeout(() => setShowReturnSuggestions(false), 150);
+  };
+
+  // Reset return form
+  const resetReturnForm = () => {
+    setReturnSupplierName('');
+    setReturnReferenceNumber('');
+    setReturnNotes('');
+    setReturnDate('');
+    setReturnProducts([]);
+    setShowReturnForm(false);
+    setReturnSearchTerm('');
+    setError('');
+    setShowReturnSuggestions(false);
+    setReturnSupplierSuggestions([]);
+  };
+
+  // Handle return form submission
+  const handleSubmitReturn = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!returnSupplierName.trim()) {
+      setError('Please enter a supplier name.');
+      return;
+    }
+
+    if (returnProducts.length === 0) {
+      setError('Please add at least one product to the return.');
+      return;
+    }
+
+    // Validate all products have valid quantities
+    const invalidProducts = returnProducts.filter(p => 
+      !p.qty || p.qty <= 0
+    );
+
+    if (invalidProducts.length > 0) {
+      setError('All products must have valid quantities greater than 0.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const totalQty = returnProducts.reduce((sum, p) => sum + p.qty, 0);
+
+      const returnData = {
+        supplierName: returnSupplierName.trim(),
+        referenceNumber: returnReferenceNumber.trim() || null,
+        notes: returnNotes.trim(),
+        customDate: returnDate || null,
+        items: returnProducts.map(p => ({
+          productId: p.id,
+          name: p.name,
+          qty: p.qty
+        })),
+        totalQty: totalQty,
+        createdBy: user.uid,
+        createdAt: new Date()
+      };
+
+      await createReturn(returnData);
+
+      // Log the return activity
+      await logActivity(
+        'return_created',
+        user.email || 'unknown_user',
+        `Return created for supplier ${returnSupplierName.trim()} - ${totalQty} item(s)${returnReferenceNumber.trim() ? ` (Ref: ${returnReferenceNumber.trim()})` : ''}`,
+        'action',
+        {
+          supplierName: returnSupplierName.trim(),
+          referenceNumber: returnReferenceNumber.trim() || null,
+          totalQty: totalQty,
+          itemCount: returnProducts.length
+        }
+      );
+
+      // Reset form
+      resetReturnForm();
+      
+      // Show success message
+      showSuccess(`Return created successfully! Supplier: ${returnSupplierName.trim()}, ${totalQty} item(s) returned`);
+
+    } catch (error) {
+      console.error('Error creating return:', error);
+      showError(`Failed to create return: ${error.message || 'Please try again.'}`);
+      setError(`Failed to create return: ${error.message || 'Please try again.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle return detail view
+  const handleViewReturnDetails = (returnItem) => {
+    setSelectedReturn(returnItem);
+    setShowReturnDetailModal(true);
+  };
+
+  // Handle delete return (admin only)
+  const handleDeleteReturn = (returnItem) => {
+    if (user?.email !== 'admin@mypackaging.com') {
+      showError('Only admin@mypackaging.com can delete returns');
+      return;
+    }
+    setReturnToDelete(returnItem);
+    setShowReturnDeleteConfirmation(true);
+  };
+
+  // Confirm delete return with password verification
+  const confirmDeleteReturn = async (e) => {
+    e.preventDefault();
+    if (!adminPassword) {
+      showError('Please enter your password');
+      return;
+    }
+
+    setDeletingReturn(true);
+    try {
+      // Verify admin password
+      await signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      
+      // Delete the return (this will also remove stock that was added back)
+      await deleteReturn(returnToDelete.id);
+      
+      // Log the deletion activity
+      await logActivity(
+        'return_deleted',
+        user.email,
+        `Deleted return from ${returnToDelete.supplierName} worth RM ${returnToDelete.total?.toFixed(2) || '0.00'}. Return ID: ${returnToDelete.id.substring(0, 8)}. Reference: ${returnToDelete.referenceNumber || 'N/A'}`,
+        'critical',
+        {
+          returnId: returnToDelete.id,
+          supplierName: returnToDelete.supplierName,
+          referenceNumber: returnToDelete.referenceNumber,
+          total: returnToDelete.total,
+          itemCount: returnToDelete.items?.length || 0
+        }
+      );
+      
+      showSuccess(`Return from ${returnToDelete.supplierName} has been deleted successfully. Stock has been adjusted.`);
+      setShowReturnDeleteConfirmation(false);
+      setAdminPassword('');
+      setReturnToDelete(null);
+      
+    } catch (error) {
+      console.error('Error deleting return:', error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        showError('Invalid password. Please try again.');
+      } else {
+        showError('Failed to delete return. Please try again.');
+      }
+    } finally {
+      setDeletingReturn(false);
+    }
+  };
+
+  // Filter products for return selection
+  const filteredReturnProducts = products.filter(product =>
+    product.name.toLowerCase().includes(returnSearchTerm.toLowerCase())
+  );
+
+  // ============================================
+  // PURCHASE FORM SUBMISSION
+  // ============================================
 
   // Handle form submission
   const handleSubmitPurchase = async (e) => {
@@ -533,26 +786,49 @@ function Purchases() {
         <div className="nav-links">
           <Link to="/products" className="nav-link">Inventory</Link>
           <Link to="/sales" className="nav-link">Sales</Link>
-          <Link to="/purchases" className="nav-link active">Purchases</Link>
+          <Link to="/purchases" className="nav-link active">Purchases & Returns</Link>
         </div>
       </div>
 
       <div className="purchases-header">
-        <h1>Purchase Management</h1>
+        <h1>Purchases & Returns Management</h1>
         <RequirePermission module="purchases" action="create">
           <button 
             className="btn-primary"
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => activeTab === 'purchases' ? setShowForm(!showForm) : setShowReturnForm(!showReturnForm)}
             disabled={loading}
           >
-            {showForm ? 'Cancel' : '+ New Purchase'}
+            {(activeTab === 'purchases' && showForm) || (activeTab === 'returns' && showReturnForm) 
+              ? 'Cancel' 
+              : activeTab === 'purchases' ? '+ New Purchase' : '+ New Return'}
           </button>
         </RequirePermission>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-btn ${activeTab === 'purchases' ? 'active' : ''}`}
+          onClick={() => setActiveTab('purchases')}
+        >
+          📦 Purchases
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'returns' ? 'active' : ''}`}
+          onClick={() => setActiveTab('returns')}
+        >
+          ↩️ Returns
+        </button>
+      </div>
+
       {error && <div className="error-message">{error}</div>}
 
-      {showForm && (
+      {/* ============================================ */}
+      {/* PURCHASES TAB CONTENT */}
+      {/* ============================================ */}
+      {activeTab === 'purchases' && (
+        <>
+          {showForm && (
         <div className="purchase-form-container">
           <h2>Create New Purchase</h2>
           
@@ -1026,6 +1302,364 @@ function Purchases() {
             </div>
           </div>
         </div>
+      )}
+        </>
+      )}
+
+      {/* ============================================ */}
+      {/* RETURNS TAB CONTENT - Admin and Manager Only */}
+      {/* ============================================ */}
+      {activeTab === 'returns' && (userRole === 'admin' || userRole === 'manager') && (
+        <>
+          {showReturnForm && (
+            <div className="purchase-form-container">
+              <h2>Create New Return</h2>
+              
+              <form onSubmit={handleSubmitReturn} className="purchase-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Supplier Name:</label>
+                    <div className="supplier-input-container">
+                      <input
+                        type="text"
+                        value={returnSupplierName}
+                        onChange={(e) => handleReturnSupplierNameChange(e.target.value)}
+                        onBlur={handleReturnSupplierBlur}
+                        onFocus={() => {
+                          if (returnSupplierName.trim().length > 0 && returnSupplierSuggestions.length > 0) {
+                            setShowReturnSuggestions(true);
+                          }
+                        }}
+                        placeholder="Enter supplier name"
+                        required
+                        autoComplete="off"
+                      />
+                      {showReturnSuggestions && returnSupplierSuggestions.length > 0 && (
+                        <div className="supplier-suggestions">
+                          {returnSupplierSuggestions.map((supplier, index) => (
+                            <div
+                              key={index}
+                              className="supplier-suggestion-item"
+                              onClick={() => selectReturnSupplier(supplier)}
+                            >
+                              {supplier}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Reference Number (Optional):</label>
+                    <input
+                      type="text"
+                      value={returnReferenceNumber}
+                      onChange={(e) => setReturnReferenceNumber(e.target.value)}
+                      placeholder="Enter return reference/tracking number"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Return Date (Optional):</label>
+                  <input
+                    type="date"
+                    value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                    placeholder="Leave empty for current date"
+                  />
+                  <small className="form-help">Leave empty to use current date</small>
+                </div>
+
+                <div className="form-group">
+                  <label>Notes (Optional):</label>
+                  <textarea
+                    value={returnNotes}
+                    onChange={(e) => setReturnNotes(e.target.value)}
+                    placeholder="Add any notes about this return (reason, condition, etc.)..."
+                    rows={3}
+                  />
+                </div>
+
+                {/* Product Selection */}
+                <div className="product-selection-section">
+                  <h3>Add Products to Return</h3>
+                  <div className="search-container">
+                    <input
+                      type="text"
+                      value={returnSearchTerm}
+                      onChange={(e) => setReturnSearchTerm(e.target.value)}
+                      placeholder="Search products to return..."
+                      className="search-input"
+                    />
+                  </div>
+
+                  {returnSearchTerm && (
+                    <div className="product-search-results">
+                      {filteredReturnProducts.slice(0, 5).map(product => (
+                        <div key={product.id} className="product-search-item">
+                          <div className="product-info">
+                            <span className="product-name">{product.name}</span>
+                            <span className="product-stock">Stock: {product.stockBalance || 0}</span>
+                            <span className="product-price">RM {product.unitPrice?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addProductToReturn(product)}
+                            className="btn-add-product"
+                            disabled={returnProducts.find(p => p.id === product.id)}
+                          >
+                            {returnProducts.find(p => p.id === product.id) ? 'Added' : 'Add'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Products */}
+                {returnProducts.length > 0 && (
+                  <div className="selected-products-section">
+                    <h3>Return Items</h3>
+                    <div className="selected-products-list">
+                      {returnProducts.map(product => (
+                        <div key={product.id} className="selected-product-item">
+                          <div className="product-details">
+                            <span className="product-name">{product.name}</span>
+                            <span className="current-stock">Current Stock: {product.currentStock}</span>
+                          </div>
+                          <div className="product-inputs">
+                            <div className="input-group">
+                              <label>Quantity to Return:</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={product.qty}
+                                onChange={(e) => updateProductInReturn(product.id, 'qty', e.target.value)}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeProductFromReturn(product.id)}
+                              className="btn-remove-product"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="purchase-total">
+                      <div className="total-breakdown">
+                        <div className="total-line"><strong>Total Items: {returnProducts.reduce((sum, p) => sum + p.qty, 0)}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-actions">
+                  <button type="button" onClick={resetReturnForm} className="btn-secondary">
+                    Cancel
+                  </button>
+                  <RequirePermission module="purchases" action="create">
+                    <button 
+                      type="submit" 
+                      className="btn-primary"
+                      disabled={loading || returnProducts.length === 0}
+                    >
+                      {loading ? 'Creating Return...' : 'Create Return'}
+                    </button>
+                  </RequirePermission>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Returns History */}
+          <div className="purchase-history-section">
+            <div className="history-header">
+              <h2>Returns History</h2>
+            </div>
+            {returns.length === 0 ? (
+              <div className="no-purchases">
+                <p>No returns found. Create your first return to get started!</p>
+              </div>
+            ) : (
+              <div className="purchases-list">
+                {returns.map(returnItem => (
+                  <div key={returnItem.id} className="purchase-item">
+                    <div className="purchase-header">
+                      <h3>{returnItem.supplierName}</h3>
+                      <span className="purchase-status return-status">↩️ Returned</span>
+                    </div>
+                    <div className="purchase-info">
+                      <p>Date: {returnItem.createdAt?.toDate().toLocaleDateString()}</p>
+                      {returnItem.referenceNumber && (
+                        <p>Reference: {returnItem.referenceNumber}</p>
+                      )}
+                      <p>Items: {returnItem.items?.length || 0}</p>
+                      <p>Total Qty: {returnItem.totalQty || returnItem.items?.reduce((sum, item) => sum + item.qty, 0) || 0}</p>
+                      {returnItem.notes && <p>Notes: {returnItem.notes}</p>}
+                    </div>
+                    <div className="purchase-actions">
+                      <button
+                        onClick={() => handleViewReturnDetails(returnItem)}
+                        className="btn-view-details"
+                      >
+                        View Details
+                      </button>
+                      {user?.email === 'admin@mypackaging.com' && (
+                        <button
+                          onClick={() => handleDeleteReturn(returnItem)}
+                          className="btn-delete-purchase"
+                          title="Delete Return (Admin Only)"
+                        >
+                          🗑️ Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Return to Top Button */}
+          <ReturnToTop />
+
+          {/* Return Detail Modal */}
+          {showReturnDetailModal && selectedReturn && (
+            <div className="modal-overlay" onClick={() => setShowReturnDetailModal(false)}>
+              <div className="modal-content purchase-detail-modal return-detail-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2>↩️ Return Order Details</h2>
+                  <button className="modal-close" onClick={() => setShowReturnDetailModal(false)}>×</button>
+                </div>
+                <div className="modal-body">
+                  <div className="purchase-summary">
+                    <div className="info-row">
+                      <span className="label">Supplier:</span>
+                      <span className="value">{selectedReturn.supplierName}</span>
+                    </div>
+                    {selectedReturn.referenceNumber && (
+                      <div className="info-row">
+                        <span className="label">Reference Number:</span>
+                        <span className="value">{selectedReturn.referenceNumber}</span>
+                      </div>
+                    )}
+                    <div className="info-row">
+                      <span className="label">Date Created:</span>
+                      <span className="value">{selectedReturn.createdAt?.toDate().toLocaleDateString()}</span>
+                    </div>
+                    {selectedReturn.notes && (
+                      <div className="info-row">
+                        <span className="label">Notes:</span>
+                        <span className="value">{selectedReturn.notes}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="items-section">
+                    <h3>Items Returned</h3>
+                    <div className="items-list">
+                      {selectedReturn.items?.map((item, index) => (
+                        <div key={index} className="item-row">
+                          <div className="item-info">
+                            <span className="item-name">{item.name}</span>
+                            <div className="item-quantities">
+                              <span className="item-qty">Quantity Returned: {item.qty}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="totals-section">
+                    <div className="total-row final-total">
+                      <span>Total Quantity Returned:</span>
+                      <span>{selectedReturn.totalQty || selectedReturn.items?.reduce((sum, item) => sum + item.qty, 0) || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="status-info return-info">
+                    <p>↩️ These items have been returned to the supplier and stock has been adjusted accordingly.</p>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setShowReturnDetailModal(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Return Confirmation Modal */}
+          {showReturnDeleteConfirmation && returnToDelete && (
+            <div className="modal-overlay" onClick={() => setShowReturnDeleteConfirmation(false)}>
+              <div className="modal-content delete-confirmation-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>⚠️ Delete Return</h3>
+                  <button className="close-btn" onClick={() => setShowReturnDeleteConfirmation(false)}>×</button>
+                </div>
+                <div className="modal-body">
+                  <div className="warning-message">
+                    <p><strong>⚠️ WARNING:</strong> This action will permanently delete the return and remove the stock that was added back.</p>
+                    <p><strong>Return Details:</strong></p>
+                    <ul>
+                      <li>Supplier: {returnToDelete.supplierName}</li>
+                      <li>Total: RM {returnToDelete.total?.toFixed(2) || '0.00'}</li>
+                      <li>Date: {returnToDelete.createdAt?.toDate().toLocaleDateString()}</li>
+                      <li>Items: {returnToDelete.items?.length || 0}</li>
+                      {returnToDelete.referenceNumber && (
+                        <li>Reference: {returnToDelete.referenceNumber}</li>
+                      )}
+                    </ul>
+                    <p>Please enter your admin password to confirm:</p>
+                  </div>
+                  <form onSubmit={confirmDeleteReturn} className="delete-form">
+                    <div className="form-group">
+                      <label htmlFor="adminPasswordReturn">Admin Password:</label>
+                      <input
+                        type="password"
+                        id="adminPasswordReturn"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        required
+                        autoComplete="current-password"
+                        disabled={deletingReturn}
+                      />
+                    </div>
+                    <div className="form-actions">
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setShowReturnDeleteConfirmation(false);
+                          setAdminPassword('');
+                          setReturnToDelete(null);
+                        }}
+                        disabled={deletingReturn}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="btn btn-danger"
+                        disabled={deletingReturn}
+                      >
+                        {deletingReturn ? 'Deleting...' : 'Delete Return'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

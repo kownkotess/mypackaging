@@ -85,6 +85,19 @@ export const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: Object.values(PERMISSIONS) // Admin has all permissions
 };
 
+// Email-based role mapping (centralized)
+const getEmailBasedRole = (email) => {
+  const roleMapping = {
+    'admin@mypackaging.com': 'admin',
+    'khairul@mypackaging.com': 'manager',
+    'yeen@mypackaging.com': 'manager',
+    'shazila@mypackaging.com': 'manager', 
+    'masliza@mypackaging.com': 'manager',
+    'cashier@mypackaging.com': 'staff'
+  };
+  return roleMapping[email] || 'outsider'; // Default to outsider for unknown emails
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -97,13 +110,17 @@ export const AuthProvider = ({ children }) => {
         // Get user role from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         
-        // Set user online status (use setDoc with merge to create fields if they don't exist)
+        // Determine role based on email mapping
+        const emailBasedRole = getEmailBasedRole(user.email);
+        
+        // Set user online status and role (use setDoc with merge to create fields if they don't exist)
         try {
           await setDoc(userDocRef, {
             isOnline: true,
             lastSeen: serverTimestamp(),
             email: user.email,
-            displayName: user.displayName || ''
+            displayName: user.displayName || '',
+            role: emailBasedRole // Set role based on email mapping
           }, { merge: true });
         } catch (error) {
           console.error('Error updating online status:', error);
@@ -113,13 +130,13 @@ export const AuthProvider = ({ children }) => {
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
             const userData = doc.data();
-            const role = userData.role || ROLES.STAFF; // Default to staff
+            const role = userData.role || emailBasedRole; // Use email-based role as fallback
             setUserRole(role);
             setUserPermissions(ROLE_PERMISSIONS[role] || []);
           } else {
-            // If user document doesn't exist, create it with default role
-            setUserRole(ROLES.STAFF);
-            setUserPermissions(ROLE_PERMISSIONS[ROLES.STAFF]);
+            // If user document doesn't exist, use email-based role
+            setUserRole(emailBasedRole);
+            setUserPermissions(ROLE_PERMISSIONS[emailBasedRole]);
           }
           setUser(user);
           setLoading(false);
@@ -137,15 +154,14 @@ export const AuthProvider = ({ children }) => {
         }, 5 * 60 * 1000); // 5 minutes
 
         // Handle browser/tab close to set user offline
-        const handleBeforeUnload = async () => {
-          try {
-            await updateDoc(userDocRef, {
-              isOnline: false,
-              lastSeen: serverTimestamp()
-            });
-          } catch (error) {
-            console.error('Error setting offline status:', error);
-          }
+        const handleBeforeUnload = () => {
+          // Use setDoc with merge for more reliable updates
+          setDoc(userDocRef, {
+            isOnline: false,
+            lastSeen: serverTimestamp()
+          }, { merge: true }).catch(() => {
+            // Silently fail if browser closes before completion
+          });
         };
 
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -171,14 +187,11 @@ export const AuthProvider = ({ children }) => {
       // Set user offline before signing out
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        try {
-          await updateDoc(userDocRef, {
-            isOnline: false,
-            lastSeen: serverTimestamp()
-          });
-        } catch (error) {
-          console.error('Error updating offline status:', error);
-        }
+        // Use setDoc instead of updateDoc to ensure it completes
+        await setDoc(userDocRef, {
+          isOnline: false,
+          lastSeen: serverTimestamp()
+        }, { merge: true });
       }
       
       await signOut(auth);

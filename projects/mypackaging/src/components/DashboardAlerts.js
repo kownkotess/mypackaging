@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
+import { useAuth } from '../context/AuthContextWrapper';
 import './DashboardAlerts.css';
 
 const DashboardAlerts = () => {
@@ -13,6 +14,8 @@ const DashboardAlerts = () => {
     criticalAlerts, 
     warningAlerts 
   } = useDashboardAlerts();
+  
+  const { userRole } = useAuth();
 
   if (loading) {
     return (
@@ -197,6 +200,14 @@ const DashboardAlerts = () => {
             <span className="action-icon">📋</span>
             <span>Add Purchase</span>
           </Link>
+          
+          {/* Return - Admin and Manager Only */}
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <Link to="/purchases?tab=returns" className="action-btn returns">
+              <span className="action-icon">↩️</span>
+              <span>Return</span>
+            </Link>
+          )}
           
           <Link to="/hutang" className="action-btn hutang">
             <span className="action-icon">💳</span>

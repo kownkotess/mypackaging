@@ -394,6 +394,11 @@
   color: white;
 }
 
+.action-btn.returns {
+  background: linear-gradient(45deg, #00BCD4, #0097A7);
+  color: white;
+}
+
 .action-icon {
   font-size: 1.2rem;
 }

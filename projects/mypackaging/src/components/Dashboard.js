@@ -217,13 +217,13 @@ const Dashboard = () => {
             </Link>
           </CanAccess>
 
-          {/* Purchases - All can view, manager+ can create/edit */}
+          {/* Purchases & Returns - All can view, manager+ can create/edit */}
           <CanAccess module="purchases">
             <Link to="/purchases" className="dashboard-card">
               <div className="card-icon">📋</div>
-              <h3>Purchases</h3>
-              <p>Track incoming stock and suppliers</p>
-              <button className="card-btn">Add Purchase</button>
+              <h3>Purchases & Returns</h3>
+              <p>Track stock in/out and suppliers</p>
+              <button className="card-btn">Manage</button>
             </Link>
           </CanAccess>
 

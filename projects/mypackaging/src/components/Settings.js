@@ -1017,15 +1017,15 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
   };
 
   const isUserOnline = (userItem) => {
-    // User is online if isOnline is true
-    // Also check if lastSeen is within the last 10 minutes (in case of network issues)
-    if (userItem.isOnline) return true;
+    // Check if user is online based on lastSeen timestamp
+    // User is considered online if lastSeen is within the last 6 minutes
+    // (slightly longer than the 5-minute heartbeat interval)
     
     if (userItem.lastSeen) {
       const lastSeen = userItem.lastSeen.toDate ? userItem.lastSeen.toDate() : new Date(userItem.lastSeen);
       const diffMs = new Date() - lastSeen;
       const diffMins = Math.floor(diffMs / 60000);
-      return diffMins < 10; // Consider online if active within last 10 minutes
+      return diffMins < 6; // Online if active within last 6 minutes
     }
     
     return false;

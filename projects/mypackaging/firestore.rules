@@ -83,6 +83,16 @@ service cloud.firestore {
       }
     }
     
+    // Returns collection (Task 1)
+    // Admin: full access | Manager: view, create | Staff: no access
+    // Returns track items returned to suppliers (stock added back)
+    match /returns/{returnId} {
+      allow read: if isAuthenticated();
+      allow create: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin(); // Only admin can delete returns
+    }
+    
     // Hutang (Credit) collection
     // Admin: full access | Manager: view, create, edit | Staff: view only
     match /hutang/{hutangId} {
@@ -92,11 +102,13 @@ service cloud.firestore {
     }
     
     // Users collection (for user management)
-    // Admin: full access | Manager: no access | Staff: no access
+    // Admin: full access | All authenticated users: can read all profiles and update their own status
     match /users/{userId} {
-      allow read, write: if isAdmin();
-      // Users can read their own profile
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated(); // All users can see other users' profiles and online status
+      allow write: if isAdmin(); // Only admin can manage roles
+      // Users can update their own online status and profile
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId; // Allow creating own user doc
     }
     
     // Settings collection
