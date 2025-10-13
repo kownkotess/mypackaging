@@ -40,9 +40,21 @@ const BarcodeScanner = ({ onScan, onClose, isOpen }) => {
         return;
       }
 
-      // Use default camera (first camera, not wide angle)
-      // The first camera is typically the default/standard camera
-      const selectedCamera = devices[0];
+      // Prefer back/rear camera (environment-facing) for mobile devices
+      // Look for camera with "back", "rear", or "environment" in the label
+      let selectedCamera = devices.find(device => 
+        device.label && (
+          device.label.toLowerCase().includes('back') ||
+          device.label.toLowerCase().includes('rear') ||
+          device.label.toLowerCase().includes('environment')
+        )
+      );
+      
+      // If no back camera found, use the last camera (usually back camera on mobile)
+      // On mobile: devices[0] = front, devices[devices.length-1] = back
+      if (!selectedCamera) {
+        selectedCamera = devices[devices.length - 1];
+      }
 
       // Configuration for scanning with larger viewport
       const config = {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -97,12 +97,14 @@ export const AuthProvider = ({ children }) => {
         // Get user role from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         
-        // Set user online status
+        // Set user online status (use setDoc with merge to create fields if they don't exist)
         try {
-          await updateDoc(userDocRef, {
+          await setDoc(userDocRef, {
             isOnline: true,
-            lastSeen: serverTimestamp()
-          });
+            lastSeen: serverTimestamp(),
+            email: user.email,
+            displayName: user.displayName || ''
+          }, { merge: true });
         } catch (error) {
           console.error('Error updating online status:', error);
         }
