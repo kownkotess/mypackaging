@@ -92,6 +92,11 @@ const MobileNav = () => {
                   
                   {(userRole === 'admin' || userRole === 'manager') && (
                     <>
+                      <Link to="/shop" className="mobile-nav-link" onClick={closeMenu}>
+                        <span className="nav-icon">🏪</span>
+                        Shop
+                      </Link>
+                      
                       <Link to="/analytics" className="mobile-nav-link" onClick={closeMenu}>
                         <span className="nav-icon">📊</span>
                         Analytics

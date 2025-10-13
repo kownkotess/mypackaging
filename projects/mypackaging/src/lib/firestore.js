@@ -781,6 +781,336 @@ export const deleteReturn = async (returnId) => {
   }
 };
 
+// ============================================
+// SHOP OPERATIONS (Task 2)
+// ============================================
+
+// SHOP USE: Record items used in shop (damaged, samples, personal use)
+// Deducts from stock balance. Only admin can delete (restores stock).
+export const createShopUse = async (shopUseData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // STEP 1: READ ALL PRODUCTS FIRST
+      const productReads = [];
+      const productRefs = [];
+      const stockUpdates = [];
+
+      if (shopUseData.items) {
+        for (const item of shopUseData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+
+        // Wait for all product reads to complete
+        const productDocs = await Promise.all(productReads);
+
+        // Prepare stock updates (subtract quantities for shop use)
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = shopUseData.items[i];
+          const productRef = productRefs[i];
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qty = Number(item.qty) || 0;
+
+            // Ensure we do not allow negative stock
+            const newStockBalance = Math.max(0, (productData.stockBalance || 0) - qty);
+            const newTotalShopUse = (productData.totalShopUse || 0) + qty;
+
+            stockUpdates.push({
+              ref: productRef,
+              stockBalance: newStockBalance,
+              totalShopUse: newTotalShopUse
+            });
+          } else {
+            throw new Error(`Product ${item.productId} not found`);
+          }
+        }
+      }
+
+      // STEP 2: PERFORM ALL WRITES
+      // Add shop use document
+      const shopUsesRef = collection(db, 'shopUses');
+      const shopUseDocRef = doc(shopUsesRef);
+
+      transaction.set(shopUseDocRef, {
+        ...shopUseData,
+        createdAt: shopUseData.customDate ? Timestamp.fromDate(new Date(shopUseData.customDate)) : serverTimestamp()
+      });
+
+      // Update product stock (subtract quantities)
+      stockUpdates.forEach(update => {
+        transaction.update(update.ref, {
+          stockBalance: update.stockBalance,
+          totalShopUse: update.totalShopUse,
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      return shopUseDocRef.id;
+    });
+  } catch (error) {
+    console.error('Error creating shop use:', error);
+    throw error;
+  }
+};
+
+// Subscribe to shop uses in real-time
+export const subscribeShopUses = (callback) => {
+  const q = query(collection(db, 'shopUses'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const shopUses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(shopUses);
+  }, (error) => {
+    console.error('Error subscribing to shop uses:', error);
+    callback([]);
+  });
+};
+
+// Delete shop use (admin only) - restores stock
+export const deleteShopUse = async (shopUseId, shopUseData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const shopUseRef = doc(db, 'shopUses', shopUseId);
+
+      // STEP 1: READ ALL PRODUCTS FIRST
+      const productReads = [];
+      const productRefs = [];
+
+      if (shopUseData.items) {
+        for (const item of shopUseData.items) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+
+        // Wait for all product reads to complete
+        const productDocs = await Promise.all(productReads);
+
+        // Restore stock for each product
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = shopUseData.items[i];
+          const productRef = productRefs[i];
+
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            const qtyToRestore = Number(item.qty) || 0;
+
+            if (qtyToRestore > 0) {
+              transaction.update(productRef, {
+                stockBalance: (productData.stockBalance || 0) + qtyToRestore,
+                totalShopUse: Math.max(0, (productData.totalShopUse || 0) - qtyToRestore),
+                updatedAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      }
+
+      // STEP 2: Delete the shop use document
+      transaction.delete(shopUseRef);
+
+      return shopUseId;
+    });
+  } catch (error) {
+    console.error('Error deleting shop use:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// TRANSFER OPERATIONS (Task 2)
+// ============================================
+
+// TRANSFER: Convert units between products (e.g., 1 roll of 100m bubble wrap → 100 x 1m pieces)
+// Deducts from source product, adds to target product based on conversion rate
+export const createTransfer = async (transferData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      // Get both source and target products
+      const sourceProductRef = doc(db, 'products', transferData.sourceProductId);
+      const targetProductRef = doc(db, 'products', transferData.targetProductId);
+
+      const sourceProductDoc = await transaction.get(sourceProductRef);
+      const targetProductDoc = await transaction.get(targetProductRef);
+
+      if (!sourceProductDoc.exists()) {
+        throw new Error('Source product not found');
+      }
+      if (!targetProductDoc.exists()) {
+        throw new Error('Target product not found');
+      }
+
+      const sourceProductData = sourceProductDoc.data();
+      const targetProductData = targetProductDoc.data();
+
+      const sourceQty = Number(transferData.sourceQty) || 0;
+      const targetQty = Number(transferData.targetQty) || 0;
+
+      // Calculate new stock balances
+      const newSourceStock = Math.max(0, (sourceProductData.stockBalance || 0) - sourceQty);
+      const newTargetStock = (targetProductData.stockBalance || 0) + targetQty;
+
+      // Create transfer document
+      const transfersRef = collection(db, 'transfers');
+      const transferDocRef = doc(transfersRef);
+
+      transaction.set(transferDocRef, {
+        ...transferData,
+        createdAt: transferData.customDate ? Timestamp.fromDate(new Date(transferData.customDate)) : serverTimestamp()
+      });
+
+      // Update source product (deduct)
+      transaction.update(sourceProductRef, {
+        stockBalance: newSourceStock,
+        totalTransferredOut: (sourceProductData.totalTransferredOut || 0) + sourceQty,
+        updatedAt: serverTimestamp()
+      });
+
+      // Update target product (add)
+      transaction.update(targetProductRef, {
+        stockBalance: newTargetStock,
+        totalTransferredIn: (targetProductData.totalTransferredIn || 0) + targetQty,
+        updatedAt: serverTimestamp()
+      });
+
+      return transferDocRef.id;
+    });
+  } catch (error) {
+    console.error('Error creating transfer:', error);
+    throw error;
+  }
+};
+
+// Subscribe to transfers in real-time
+export const subscribeTransfers = (callback) => {
+  const q = query(collection(db, 'transfers'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const transfers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(transfers);
+  }, (error) => {
+    console.error('Error subscribing to transfers:', error);
+    callback([]);
+  });
+};
+
+// Delete transfer (admin only) - reverses the transfer
+export const deleteTransfer = async (transferId, transferData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const transferRef = doc(db, 'transfers', transferId);
+
+      // Get both source and target products
+      const sourceProductRef = doc(db, 'products', transferData.sourceProductId);
+      const targetProductRef = doc(db, 'products', transferData.targetProductId);
+
+      const sourceProductDoc = await transaction.get(sourceProductRef);
+      const targetProductDoc = await transaction.get(targetProductRef);
+
+      if (sourceProductDoc.exists() && targetProductDoc.exists()) {
+        const sourceProductData = sourceProductDoc.data();
+        const targetProductData = targetProductDoc.data();
+
+        const sourceQty = Number(transferData.sourceQty) || 0;
+        const targetQty = Number(transferData.targetQty) || 0;
+
+        // Reverse the transfer: add back to source, subtract from target
+        transaction.update(sourceProductRef, {
+          stockBalance: (sourceProductData.stockBalance || 0) + sourceQty,
+          totalTransferredOut: Math.max(0, (sourceProductData.totalTransferredOut || 0) - sourceQty),
+          updatedAt: serverTimestamp()
+        });
+
+        transaction.update(targetProductRef, {
+          stockBalance: Math.max(0, (targetProductData.stockBalance || 0) - targetQty),
+          totalTransferredIn: Math.max(0, (targetProductData.totalTransferredIn || 0) - targetQty),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // Delete the transfer document
+      transaction.delete(transferRef);
+
+      return transferId;
+    });
+  } catch (error) {
+    console.error('Error deleting transfer:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// STOCK AUDIT OPERATIONS (Task 2)
+// ============================================
+
+// STOCK AUDIT: Manual stock adjustment with admin password verification
+// Adjusts stock to match actual count. Creates permanent audit trail.
+export const createStockAudit = async (auditData) => {
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const productRef = doc(db, 'products', auditData.productId);
+      const productDoc = await transaction.get(productRef);
+
+      if (!productDoc.exists()) {
+        throw new Error('Product not found');
+      }
+
+      const productData = productDoc.data();
+      const currentStock = productData.stockBalance || 0;
+      const actualStock = Number(auditData.actualStock) || 0;
+      const difference = actualStock - currentStock;
+
+      // Create audit document
+      const auditsRef = collection(db, 'stockAudits');
+      const auditDocRef = doc(auditsRef);
+
+      transaction.set(auditDocRef, {
+        ...auditData,
+        currentStock: currentStock,
+        actualStock: actualStock,
+        difference: difference,
+        createdAt: serverTimestamp()
+      });
+
+      // Update product stock to actual count
+      transaction.update(productRef, {
+        stockBalance: actualStock,
+        lastAuditDate: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      return auditDocRef.id;
+    });
+  } catch (error) {
+    console.error('Error creating stock audit:', error);
+    throw error;
+  }
+};
+
+// Subscribe to stock audits in real-time
+export const subscribeStockAudits = (callback) => {
+  const q = query(collection(db, 'stockAudits'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const audits = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(audits);
+  }, (error) => {
+    console.error('Error subscribing to stock audits:', error);
+    callback([]);
+  });
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -794,6 +1124,14 @@ const firestoreUtils = {
   createReturn,
   subscribeReturns,
   deleteReturn,
+  createShopUse,
+  subscribeShopUses,
+  deleteShopUse,
+  createTransfer,
+  subscribeTransfers,
+  deleteTransfer,
+  createStockAudit,
+  subscribeStockAudits,
   bulkUpdateProducts,
   bulkStockAdjustment,
   getUniqueCustomerNames

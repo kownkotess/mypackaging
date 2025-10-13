@@ -209,6 +209,14 @@ const DashboardAlerts = () => {
             </Link>
           )}
           
+          {/* Shop - Admin and Manager Only */}
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <Link to="/shop" className="action-btn shop">
+              <span className="action-icon">🏪</span>
+              <span>Shop</span>
+            </Link>
+          )}
+          
           <Link to="/hutang" className="action-btn hutang">
             <span className="action-icon">💳</span>
             <span>Manage Credits</span>

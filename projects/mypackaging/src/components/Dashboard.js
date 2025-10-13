@@ -237,6 +237,16 @@ const Dashboard = () => {
             </Link>
           </CanAccess>
 
+          {/* Shop - Manager and Admin only */}
+          <CanAccess module="analytics">
+            <Link to="/shop" className="dashboard-card">
+              <div className="card-icon">🏪</div>
+              <h3>Shop Management</h3>
+              <p>Shop use, transfers, and stock audits</p>
+              <button className="card-btn">Manage</button>
+            </Link>
+          </CanAccess>
+
           {/* Analytics - Manager and Admin only */}
           <CanAccess module="analytics">
             <Link to="/analytics" className="dashboard-card">

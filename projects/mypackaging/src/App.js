@@ -12,6 +12,7 @@ import Products from './components/Products';
 import Sales from './components/Sales';
 import Purchases from './components/Purchases';
 import Hutang from './components/Hutang';
+import Shop from './components/Shop';
 import Analytics from './components/Analytics';
 import Reports from './components/ReportsFull';
 import Settings from './components/Settings';
@@ -63,6 +64,13 @@ function App() {
               <Route path="/hutang" element={
                 <ProtectedRoute module="hutang">
                   <Hutang />
+                </ProtectedRoute>
+              } />
+              
+              {/* Shop - manager and admin only */}
+              <Route path="/shop" element={
+                <ProtectedRoute requiredRole={['manager', 'admin']} module="shop">
+                  <Shop />
                 </ProtectedRoute>
               } />
               

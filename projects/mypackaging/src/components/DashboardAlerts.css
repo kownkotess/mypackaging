@@ -399,6 +399,11 @@
   color: white;
 }
 
+.action-btn.shop {
+  background: linear-gradient(45deg, #673AB7, #512DA8);
+  color: white;
+}
+
 .action-icon {
   font-size: 1.2rem;
 }

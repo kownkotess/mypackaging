@@ -101,6 +101,35 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
+    // Shop Uses collection (Task 2)
+    // Admin: full access | Manager: view, create | Staff: no access
+    // Shop uses track items used in shop (damaged, samples, personal use)
+    match /shopUses/{shopUseId} {
+      allow read: if isAuthenticated();
+      allow create: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin(); // Only admin can delete shop uses
+    }
+    
+    // Transfers collection (Task 2)
+    // Admin: full access | Manager: view, create | Staff: no access
+    // Transfers track unit conversions between products
+    match /transfers/{transferId} {
+      allow read: if isAuthenticated();
+      allow create: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin(); // Only admin can delete transfers
+    }
+    
+    // Stock Audits collection (Task 2)
+    // Admin: full access | Others: no access
+    // Stock audits are manual stock adjustments with password verification
+    match /stockAudits/{auditId} {
+      allow read: if isAdmin(); // Only admin can view audits
+      allow create: if isAdmin(); // Only admin can create audits
+      allow update, delete: if false; // Audits cannot be modified or deleted
+    }
+    
     // Users collection (for user management)
     // Admin: full access | All authenticated users: can read all profiles and update their own status
     match /users/{userId} {
