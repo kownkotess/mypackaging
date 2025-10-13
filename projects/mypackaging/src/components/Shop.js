@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
 import {
@@ -477,8 +478,13 @@ function Shop() {
   return (
     <div className="shop-container">
       <div className="shop-header">
-        <h1>🏪 Shop Management</h1>
-        <p>Manage shop usage, transfers, and stock audits</p>
+        <div className="header-content">
+          <div>
+            <h1>🏪 Shop Management</h1>
+            <p>Manage shop usage, transfers, and stock audits</p>
+          </div>
+          <Link to="/" className="back-button">← Back to Dashboard</Link>
+        </div>
       </div>
 
       {/* Tab Navigation */}

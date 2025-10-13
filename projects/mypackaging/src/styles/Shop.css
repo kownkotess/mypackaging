@@ -7,8 +7,15 @@
 }
 
 .shop-header {
-  text-align: center;
   margin-bottom: 30px;
+}
+
+.shop-header .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .shop-header h1 {
@@ -20,6 +27,24 @@
 .shop-header p {
   color: #666;
   font-size: 1.1rem;
+}
+
+.back-button {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #004D24, #006633);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background: linear-gradient(135deg, #006633, #008844);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Tab Navigation */
