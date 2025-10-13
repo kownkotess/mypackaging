@@ -40,21 +40,22 @@ const BarcodeScanner = ({ onScan, onClose, isOpen }) => {
         return;
       }
 
-      // Prefer back camera
-      let selectedCamera = devices[0];
-      for (let device of devices) {
-        if (device.label.toLowerCase().includes('back') || 
-            device.label.toLowerCase().includes('rear') || 
-            device.label.toLowerCase().includes('environment')) {
-          selectedCamera = device;
-          break;
-        }
-      }
+      // Use default camera (first camera, not wide angle)
+      // The first camera is typically the default/standard camera
+      const selectedCamera = devices[0];
 
-      // Configuration for scanning
+      // Configuration for scanning with larger viewport
       const config = {
         fps: 10,
-        qrbox: { width: 250, height: 250 },
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+          // Make QR box 80% of the smaller dimension for better scanning
+          const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxSize = Math.floor(minEdgeSize * 0.8);
+          return {
+            width: qrboxSize,
+            height: qrboxSize
+          };
+        },
         aspectRatio: 1.0,
         supportedScanTypes: [
           Html5QrcodeSupportedFormats.QR_CODE,

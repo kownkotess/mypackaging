@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -97,6 +97,16 @@ export const AuthProvider = ({ children }) => {
         // Get user role from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         
+        // Set user online status
+        try {
+          await updateDoc(userDocRef, {
+            isOnline: true,
+            lastSeen: serverTimestamp()
+          });
+        } catch (error) {
+          console.error('Error updating online status:', error);
+        }
+
         // Subscribe to user document for real-time role updates
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
@@ -113,7 +123,36 @@ export const AuthProvider = ({ children }) => {
           setLoading(false);
         });
 
-        return () => unsubscribeUser();
+        // Set up heartbeat to update last seen every 5 minutes
+        const heartbeatInterval = setInterval(async () => {
+          try {
+            await updateDoc(userDocRef, {
+              lastSeen: serverTimestamp()
+            });
+          } catch (error) {
+            console.error('Error updating heartbeat:', error);
+          }
+        }, 5 * 60 * 1000); // 5 minutes
+
+        // Handle browser/tab close to set user offline
+        const handleBeforeUnload = async () => {
+          try {
+            await updateDoc(userDocRef, {
+              isOnline: false,
+              lastSeen: serverTimestamp()
+            });
+          } catch (error) {
+            console.error('Error setting offline status:', error);
+          }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+          unsubscribeUser();
+          clearInterval(heartbeatInterval);
+          window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
       } else {
         setUser(null);
         setUserRole(null);
@@ -127,6 +166,19 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Set user offline before signing out
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        try {
+          await updateDoc(userDocRef, {
+            isOnline: false,
+            lastSeen: serverTimestamp()
+          });
+        } catch (error) {
+          console.error('Error updating offline status:', error);
+        }
+      }
+      
       await signOut(auth);
       setUser(null);
       setUserRole(null);

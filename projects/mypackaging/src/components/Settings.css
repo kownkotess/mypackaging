@@ -269,10 +269,46 @@
   box-shadow: 0 2px 4px rgba(0, 77, 36, 0.1);
 }
 
-.user-info {
+.user-item .user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.user-item .user-main-info {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
+}
+
+.user-item .user-status-info {
+  display: flex;
+  align-items: center;
+  padding-left: 28px;
+}
+
+.online-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.online-status.online {
+  background: #28a745;
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+}
+
+.online-status.offline {
+  background: #6c757d;
+}
+
+.last-seen {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
 }
 
 .current-user-badge {

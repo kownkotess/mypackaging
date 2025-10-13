@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
-import { collection, getDocs, doc, updateDoc, setDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc, query, where, writeBatch, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -12,7 +12,7 @@ import { getAuditLogs } from '../lib/auditLog';
 import './Settings.css';
 
 const Settings = () => {
-  const { user, userRole, hasRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { showSuccess, showError } = useAlert();
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,39 +41,50 @@ const Settings = () => {
     navigate(`/settings?tab=${tab}`);
   };
 
-  const fetchUsers = useCallback(async () => {
+  // Subscribe to users collection for real-time updates
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+
     setLoadingUsers(true);
-    try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const usersData = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Ensure current user is included in the list
-      if (user) {
-        const currentUserExists = usersData.some(userData => userData.id === user.uid || userData.email === user.email);
+    
+    const unsubscribe = onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        const usersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         
-        if (!currentUserExists) {
-          // Add current user to the list with their role from AuthContextWrapper
-          usersData.unshift({
-            id: user.uid,
-            email: user.email,
-            displayName: user.displayName || '',
-            role: userRole,
-            createdAt: user.metadata?.creationTime ? new Date(user.metadata.creationTime) : new Date(),
-            isCurrentUser: true // Flag to indicate this is the current user
-          });
+        // Ensure current user is included in the list
+        if (user) {
+          const currentUserExists = usersData.some(userData => userData.id === user.uid || userData.email === user.email);
+          
+          if (!currentUserExists) {
+            // Add current user to the list with their role from AuthContextWrapper
+            usersData.unshift({
+              id: user.uid,
+              email: user.email,
+              displayName: user.displayName || '',
+              role: userRole,
+              createdAt: user.metadata?.creationTime ? new Date(user.metadata.creationTime) : new Date(),
+              isCurrentUser: true, // Flag to indicate this is the current user
+              isOnline: true, // Current user is always online
+              lastSeen: new Date()
+            });
+          }
         }
+        
+        setUsers(usersData);
+        setLoadingUsers(false);
+      },
+      (error) => {
+        console.error('Error fetching users:', error);
+        setLoadingUsers(false);
       }
-      
-      setUsers(usersData);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, [user, userRole]);
+    );
+
+    return () => unsubscribe();
+  }, [user, userRole, activeTab]);
 
   const updateUserRole = async (userId, newRole) => {
     try {
@@ -103,7 +114,7 @@ const Settings = () => {
           updatedAt: serverTimestamp()
         });
       }
-      await fetchUsers(); // Refresh the list
+      // Real-time subscription will handle the refresh automatically
       showSuccess('User role updated successfully!');
     } catch (error) {
       console.error('Error updating user role:', error);
@@ -312,11 +323,7 @@ const Settings = () => {
     showSuccess('Automatic backup scheduling will be available in a future update. For now, please use manual export.');
   };
 
-  useEffect(() => {
-    if (activeTab === 'users' && hasRole('admin')) {
-      fetchUsers();
-    }
-  }, [activeTab, hasRole, fetchUsers]);
+  // Real-time user subscription is handled in the useEffect above
 
   return (
     <div className="settings">
@@ -992,6 +999,38 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
     }
   };
 
+  const formatLastSeen = (lastSeenTimestamp) => {
+    if (!lastSeenTimestamp) return 'Never';
+    
+    const lastSeen = lastSeenTimestamp.toDate ? lastSeenTimestamp.toDate() : new Date(lastSeenTimestamp);
+    const now = new Date();
+    const diffMs = now - lastSeen;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return lastSeen.toLocaleDateString();
+  };
+
+  const isUserOnline = (userItem) => {
+    // User is online if isOnline is true
+    // Also check if lastSeen is within the last 10 minutes (in case of network issues)
+    if (userItem.isOnline) return true;
+    
+    if (userItem.lastSeen) {
+      const lastSeen = userItem.lastSeen.toDate ? userItem.lastSeen.toDate() : new Date(userItem.lastSeen);
+      const diffMs = new Date() - lastSeen;
+      const diffMins = Math.floor(diffMs / 60000);
+      return diffMins < 10; // Consider online if active within last 10 minutes
+    }
+    
+    return false;
+  };
+
   return (
     <div className="settings-section">
       <h2>User Management</h2>
@@ -1005,14 +1044,22 @@ const UserManagement = ({ users, loadingUsers, updateUserRole }) => {
             {users.map(userItem => (
               <div key={userItem.id} className={`user-item ${userItem.isCurrentUser ? 'current-user' : ''}`}>
                 <div className="user-info">
-                  <strong>{userItem.email}</strong>
-                  {userItem.isCurrentUser && <span className="current-user-badge">You</span>}
-                  <span className={getRoleBadgeClass(userItem.role)}>
-                    {userItem.role?.charAt(0).toUpperCase() + userItem.role?.slice(1) || 'Staff'}
-                  </span>
-                  {userItem.displayName && (
-                    <span className="user-display-name">({userItem.displayName})</span>
-                  )}
+                  <div className="user-main-info">
+                    <span className={`online-status ${isUserOnline(userItem) ? 'online' : 'offline'}`}></span>
+                    <strong>{userItem.email}</strong>
+                    {userItem.isCurrentUser && <span className="current-user-badge">You</span>}
+                    <span className={getRoleBadgeClass(userItem.role)}>
+                      {userItem.role?.charAt(0).toUpperCase() + userItem.role?.slice(1) || 'Staff'}
+                    </span>
+                    {userItem.displayName && (
+                      <span className="user-display-name">({userItem.displayName})</span>
+                    )}
+                  </div>
+                  <div className="user-status-info">
+                    <span className="last-seen">
+                      {isUserOnline(userItem) ? 'Online' : `Last seen: ${formatLastSeen(userItem.lastSeen)}`}
+                    </span>
+                  </div>
                 </div>
                 <div className="user-actions">
                   {editingUser?.id === userItem.id ? (

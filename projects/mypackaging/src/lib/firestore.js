@@ -418,9 +418,8 @@ export const updatePurchase = async (purchaseId, updateData) => {
       const newStatus = updateData.status;
       const oldStatus = currentPurchase.status;
       
-      // If changing status to "Received" or "Received Partial", update stock levels
-      if ((newStatus === '✅ Received' || newStatus === '📦❗ Received Partial') && 
-          oldStatus !== '✅ Received' && oldStatus !== '📦❗ Received Partial' && 
+      // STEP 1: First, remove any previously added stock if we're transitioning FROM a received state
+      if ((oldStatus === '✅ Received' || oldStatus === '📦❗ Received Partial') && 
           currentPurchase.items) {
         // Read all products first
         const productReads = [];
@@ -434,10 +433,56 @@ export const updatePurchase = async (purchaseId, updateData) => {
         
         const productDocs = await Promise.all(productReads);
         
-        // Update stock for each product
+        // Remove previously added stock for each product
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
           const item = currentPurchase.items[i];
+          const productRef = productRefs[i];
+          
+          if (productDoc.exists()) {
+            const productData = productDoc.data();
+            
+            // Remove the quantity that was previously added
+            let qtyToRemove;
+            if (oldStatus === '📦❗ Received Partial') {
+              qtyToRemove = Number(item.receivedQty) || 0;
+            } else {
+              qtyToRemove = Number(item.qty) || 0;
+            }
+            
+            if (qtyToRemove > 0) {
+              transaction.update(productRef, {
+                stockBalance: Math.max(0, (productData.stockBalance || 0) - qtyToRemove),
+                totalPurchased: Math.max(0, (productData.totalPurchased || 0) - qtyToRemove),
+                updatedAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      }
+      
+      // STEP 2: Then, add new stock if we're transitioning TO a received state
+      if ((newStatus === '✅ Received' || newStatus === '📦❗ Received Partial') && 
+          currentPurchase.items) {
+        // Use updated items if provided (for partial delivery), otherwise use current items
+        const itemsToProcess = updateData.items || currentPurchase.items;
+        
+        // Read all products first (may have been updated in STEP 1)
+        const productReads = [];
+        const productRefs = [];
+        
+        for (const item of itemsToProcess) {
+          const productRef = doc(db, 'products', item.productId);
+          productRefs.push(productRef);
+          productReads.push(transaction.get(productRef));
+        }
+        
+        const productDocs = await Promise.all(productReads);
+        
+        // Add new stock for each product
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = itemsToProcess[i];
           const productRef = productRefs[i];
           
           if (productDoc.exists()) {
@@ -447,7 +492,7 @@ export const updatePurchase = async (purchaseId, updateData) => {
             let qtyToAdd;
             if (newStatus === '📦❗ Received Partial') {
               qtyToAdd = Number(item.receivedQty) || 0;
-            } else {
+            } else if (newStatus === '✅ Received') {
               qtyToAdd = Number(item.qty) || 0;
             }
             
@@ -458,48 +503,6 @@ export const updatePurchase = async (purchaseId, updateData) => {
                 updatedAt: serverTimestamp()
               });
             }
-          }
-        }
-      }
-      
-      // If changing status from "Received" or "Received Partial" to something else, remove stock
-      if ((oldStatus === '✅ Received' || oldStatus === '📦❗ Received Partial') && 
-          newStatus !== '✅ Received' && newStatus !== '📦❗ Received Partial' && 
-          currentPurchase.items) {
-        // Read all products first
-        const productReads = [];
-        const productRefs = [];
-        
-        for (const item of currentPurchase.items) {
-          const productRef = doc(db, 'products', item.productId);
-          productRefs.push(productRef);
-          productReads.push(transaction.get(productRef));
-        }
-        
-        const productDocs = await Promise.all(productReads);
-        
-        // Remove stock for each product
-        for (let i = 0; i < productDocs.length; i++) {
-          const productDoc = productDocs[i];
-          const item = currentPurchase.items[i];
-          const productRef = productRefs[i];
-          
-          if (productDoc.exists()) {
-            const productData = productDoc.data();
-            
-            // For partial deliveries, remove received quantity; for full delivery, remove ordered quantity
-            let qtyToRemove;
-            if (oldStatus === '📦❗ Received Partial') {
-              qtyToRemove = Number(item.receivedQty) || 0;
-            } else {
-              qtyToRemove = Number(item.qty) || 0;
-            }
-            
-            transaction.update(productRef, {
-              stockBalance: Math.max(0, (productData.stockBalance || 0) - qtyToRemove),
-              totalPurchased: Math.max(0, (productData.totalPurchased || 0) - qtyToRemove),
-              updatedAt: serverTimestamp()
-            });
           }
         }
       }
@@ -604,6 +607,29 @@ export const bulkStockAdjustment = async (adjustments) => {
   }
 };
 
+// Get unique customer names from sales
+export const getUniqueCustomerNames = async () => {
+  try {
+    const salesRef = collection(db, 'sales');
+    const salesSnapshot = await getDocs(salesRef);
+    
+    const customerNamesSet = new Set();
+    salesSnapshot.forEach(doc => {
+      const customerName = doc.data().customerName;
+      if (customerName && customerName.trim() && customerName.toLowerCase() !== 'walk in') {
+        customerNamesSet.add(customerName.trim());
+      }
+    });
+    
+    return Array.from(customerNamesSet).sort((a, b) => 
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+  } catch (error) {
+    console.error('Error getting unique customer names:', error);
+    return [];
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -615,7 +641,8 @@ const firestoreUtils = {
   updatePurchase,
   subscribePurchases,
   bulkUpdateProducts,
-  bulkStockAdjustment
+  bulkStockAdjustment,
+  getUniqueCustomerNames
 };
 
 export default firestoreUtils;

@@ -12,7 +12,10 @@ import {
   onSnapshot,
   orderBy,
   doc,
-  runTransaction
+  runTransaction,
+  getDocs,
+  where,
+  deleteDoc
 } from 'firebase/firestore';
 import { 
   BarChart, 
@@ -160,7 +163,7 @@ const Reports = () => {
     purchases.forEach(purchase => {
       if (purchase.items) {
         purchase.items.forEach(item => {
-          console.log(`DEBUG: Purchase item - cost: ${item.cost}, quantity: ${item.quantity}`);
+          console.log(`DEBUG: Purchase item - cost: ${item.cost}, qty: ${item.qty}`);
         });
       }
     });
@@ -191,16 +194,21 @@ const Reports = () => {
       margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
     });
 
-    // Cash Flow Analysis
+    // Cash Flow Analysis - shows breakdown based on selected period
     const cashFlowData = [];
-    for (let i = 6; i >= 0; i--) {
+    const daysToShow = dateRange === 'week' ? 7 : 
+                      dateRange === 'month' ? 30 :
+                      dateRange === 'quarter' ? 90 :
+                      365;
+    
+    for (let i = daysToShow - 1; i >= 0; i--) {
       const date = subDays(now, i);
-      const daySales = sales.filter(sale => 
+      const daySales = periodSales.filter(sale => 
         sale.createdAt && 
         isToday(date) ? isToday(sale.createdAt) : 
         sale.createdAt.toDateString() === date.toDateString()
       );
-      const dayPurchases = purchases.filter(purchase => 
+      const dayPurchases = periodPurchases.filter(purchase => 
         purchase.createdAt && 
         isToday(date) ? isToday(purchase.createdAt) : 
         purchase.createdAt.toDateString() === date.toDateString()
@@ -208,7 +216,11 @@ const Reports = () => {
 
       const inflow = daySales.reduce((sum, sale) => sum + (sale.paidAmount || 0), 0);
       const outflow = dayPurchases.reduce((sum, purchase) => {
-        return sum + (purchase.items?.reduce((itemSum, item) => itemSum + (item.cost || 0), 0) || 0);
+        return sum + (purchase.items?.reduce((itemSum, item) => {
+          const qty = Number(item.qty) || 0;
+          const cost = Number(item.cost) || 0;
+          return itemSum + (qty * cost);
+        }, 0) || 0);
       }, 0);
 
       cashFlowData.push({
@@ -220,8 +232,8 @@ const Reports = () => {
     }
     setCashFlow(cashFlowData);
 
-    // Hutang Aging
-    const hutangSales = sales.filter(sale => sale.status === 'Hutang');
+    // Hutang Aging - filter by period
+    const hutangSales = periodSales.filter(sale => sale.status === 'Hutang');
     const aging = { current: 0, days30: 0, days60: 0, days90: 0 };
 
     hutangSales.forEach(sale => {
@@ -256,9 +268,18 @@ const Reports = () => {
   const calculateBusinessInsights = useCallback(() => {
     if (!sales.length) return;
 
+    // Apply date filtering
+    const now = new Date();
+    const periodStart = dateRange === 'week' ? subDays(now, 7) : 
+                       dateRange === 'month' ? subDays(now, 30) :
+                       dateRange === 'quarter' ? subDays(now, 90) :
+                       subDays(now, 365);
+
+    const periodSales = sales.filter(sale => sale.createdAt >= periodStart);
+
     // Customer Patterns
     const customerData = {};
-    sales.forEach(sale => {
+    periodSales.forEach(sale => {
       const customer = sale.customerName || 'Walk-in Customer';
       if (!customerData[customer]) {
         customerData[customer] = {
@@ -282,7 +303,7 @@ const Reports = () => {
 
     // Peak Hours Analysis
     const hourData = Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0, revenue: 0 }));
-    sales.forEach(sale => {
+    periodSales.forEach(sale => {
       if (sale.createdAt) {
         const hour = getHours(sale.createdAt);
         hourData[hour].sales += 1;
@@ -294,7 +315,7 @@ const Reports = () => {
 
     // Seasonal Trends (monthly)
     const monthlyData = {};
-    sales.forEach(sale => {
+    periodSales.forEach(sale => {
       if (sale.createdAt) {
         const monthKey = format(sale.createdAt, 'MMM yyyy');
         if (!monthlyData[monthKey]) {
@@ -309,7 +330,7 @@ const Reports = () => {
 
     // ROI Analysis
     const productROI = products.map(product => {
-      const productSales = sales.filter(sale => 
+      const productSales = periodSales.filter(sale => 
         sale.items?.some(item => item.productId === product.id)
       );
       
@@ -331,10 +352,19 @@ const Reports = () => {
     }).sort((a, b) => b.roi - a.roi);
 
     setRoiData(productROI.slice(0, 10));
-  }, [sales, products]);
+  }, [sales, products, dateRange]);
 
   const calculateInventoryIntelligence = useCallback(() => {
     if (!products.length) return;
+
+    // Apply date filtering
+    const now = new Date();
+    const periodStart = dateRange === 'week' ? subDays(now, 7) : 
+                       dateRange === 'month' ? subDays(now, 30) :
+                       dateRange === 'quarter' ? subDays(now, 90) :
+                       subDays(now, 365);
+
+    const periodSales = sales.filter(sale => sale.createdAt >= periodStart);
 
     // Low Stock Alerts
     const lowStock = products.filter(product => {
@@ -365,7 +395,7 @@ const Reports = () => {
 
     // Product Performance
     const performance = products.map(product => {
-      const productSales = sales.filter(sale => 
+      const productSales = periodSales.filter(sale => 
         sale.items?.some(item => item.productId === product.id)
       );
       
@@ -377,9 +407,14 @@ const Reports = () => {
       const quantity = productSales.reduce((sum, sale) => {
         const productItems = sale.items?.filter(item => item.productId === product.id) || [];
         return sum + productItems.reduce((itemSum, item) => {
-          // Calculate total quantity from qtyBox, qtyPack, and qtyLoose
-          const totalQty = (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0);
-          return itemSum + totalQty;
+          // Calculate total units using conversion formula: Box×bigBulkQty + Pack×smallBulkQty + Loose
+          const qtyBox = Number(item.qtyBox) || 0;
+          const qtyPack = Number(item.qtyPack) || 0;
+          const qtyLoose = Number(item.qtyLoose) || 0;
+          const bigBulkQty = Number(product.bigBulkQty) || 1;
+          const smallBulkQty = Number(product.smallBulkQty) || 1;
+          const totalUnits = (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+          return itemSum + totalUnits;
         }, 0);
       }, 0);
 
@@ -394,11 +429,9 @@ const Reports = () => {
 
     setProductPerformance(performance);
 
-    // Dead Stock (no sales in 60 days)
-    const sixtyDaysAgo = subDays(new Date(), 60);
+    // Dead Stock (no sales in period)
     const dead = products.filter(product => {
-      const recentSales = sales.filter(sale => 
-        sale.createdAt >= sixtyDaysAgo &&
+      const recentSales = periodSales.filter(sale => 
         sale.items?.some(item => item.productId === product.id)
       );
       
@@ -406,7 +439,7 @@ const Reports = () => {
     });
 
     setDeadStock(dead);
-  }, [products, sales]);
+  }, [products, sales, dateRange]);
 
   useEffect(() => {
     if (sales.length > 0 || products.length > 0) {
@@ -573,6 +606,28 @@ const Reports = () => {
     return format(date, 'HH:mm');
   };
 
+  // Calculate total units from sale item using conversion formula
+  const calculateTotalUnits = (item) => {
+    // If item already has a quantity field, use it (legacy support)
+    if (item.quantity) return item.quantity;
+
+    // Find the product to get bulk quantities
+    const product = products.find(p => p.id === item.productId);
+    if (!product) {
+      // Fallback: just add quantities without conversion
+      return (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0);
+    }
+
+    // Calculate using conversion formula: Box×bigBulkQty + Pack×smallBulkQty + Loose
+    const qtyBox = Number(item.qtyBox) || 0;
+    const qtyPack = Number(item.qtyPack) || 0;
+    const qtyLoose = Number(item.qtyLoose) || 0;
+    const bigBulkQty = Number(product.bigBulkQty) || 1;
+    const smallBulkQty = Number(product.smallBulkQty) || 1;
+    
+    return (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+  };
+
   const getFilteredSalesData = () => {
     const now = new Date();
     let startDate = new Date();
@@ -703,7 +758,15 @@ const Reports = () => {
     });
 
     // Process repayments (hutang payments) - these are separate from original sales
+    // IMPORTANT: Only count payments that belong to existing sales (not deleted sales)
+    const existingSaleIds = new Set(filteredSales.map(sale => sale.id));
+    
     filteredPayments.forEach(payment => {
+      // Skip payments for deleted sales
+      if (!payment.saleId || !existingSaleIds.has(payment.saleId)) {
+        return;
+      }
+      
       const amount = parseFloat(payment.amount || 0);
       totals.repayments.total += amount;
 
@@ -767,32 +830,89 @@ const Reports = () => {
 
   const handleDeleteSale = async (sale) => {
     showConfirm(
-      `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\n\nThis action cannot be undone.`,
+      `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\nPayment Method: ${sale.paymentMethod}\n\n${sale.paymentMethod === 'hutang' ? '⚠️ WARNING: This will also delete all associated hutang repayments!\n\n' : ''}This action cannot be undone.`,
       async () => {
         try {
           let productUpdates = [];
+          let deletedPayments = 0;
+          let totalPaymentsAmount = 0;
+          
+          // CRITICAL: If this is a hutang sale, delete all associated payments first
+          if (sale.paymentMethod === 'hutang') {
+            // Get all payments from subcollection
+            const paymentsSnapshot = await getDocs(collection(db, 'sales', sale.id, 'payments'));
+            
+            // Get all payments from top-level collection
+            const topPaymentsQuery = query(collection(db, 'payments'), where('saleId', '==', sale.id));
+            const topPaymentsSnapshot = await getDocs(topPaymentsQuery);
+            
+            // Delete subcollection payments
+            const deletePromises = [];
+            paymentsSnapshot.forEach((paymentDoc) => {
+              const paymentData = paymentDoc.data();
+              totalPaymentsAmount += paymentData.amount || 0;
+              deletedPayments++;
+              deletePromises.push(deleteDoc(doc(db, 'sales', sale.id, 'payments', paymentDoc.id)));
+            });
+            
+            // Delete top-level payments
+            topPaymentsSnapshot.forEach((paymentDoc) => {
+              deletePromises.push(deleteDoc(doc(db, 'payments', paymentDoc.id)));
+            });
+            
+            await Promise.all(deletePromises);
+            
+            // Log payment deletions
+            if (deletedPayments > 0) {
+              await logActivity(
+                'hutang_payments_deleted',
+                user.email,
+                `Deleted ${deletedPayments} hutang repayment(s) totaling RM ${totalPaymentsAmount.toFixed(2)} before deleting sale. Sale ID: ${sale.id.substring(0, 8)}`,
+                'critical',
+                {
+                  saleId: sale.id,
+                  customerName: sale.customerName,
+                  paymentsDeleted: deletedPayments,
+                  totalPaymentsAmount: totalPaymentsAmount
+                }
+              );
+            }
+          }
           
           // Run transaction to delete sale and restore stock
           await runTransaction(db, async (transaction) => {
             // Get current product data to update stock
         
-        // Check if products exist before processing
-        if (sale.products && Array.isArray(sale.products)) {
-          for (const saleProduct of sale.products) {
-            const productRef = doc(db, 'products', saleProduct.id);
+        // Check if items exist before processing
+        if (sale.items && Array.isArray(sale.items)) {
+          for (const saleItem of sale.items) {
+            const productRef = doc(db, 'products', saleItem.productId);
             const productDoc = await transaction.get(productRef);
             
             if (productDoc.exists()) {
-              const currentStock = productDoc.data().stockBalance || 0;
-              const newStock = currentStock + (saleProduct.quantity || 0);
+              const productData = productDoc.data();
+              const currentStock = productData.stockBalance || 0;
+              const currentQtySold = productData.quantitySold || 0;
+              
+              // Calculate total units sold (same formula as when creating sale)
+              const qtyBox = Number(saleItem.qtyBox) || 0;
+              const qtyPack = Number(saleItem.qtyPack) || 0;
+              const qtyLoose = Number(saleItem.qtyLoose) || 0;
+              const bigBulkQty = Number(productData.bigBulkQty) || 1;
+              const smallBulkQty = Number(productData.smallBulkQty) || 1;
+              
+              const totalUnits = (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+              const newStock = currentStock + totalUnits;
+              const newQtySold = Math.max(0, currentQtySold - totalUnits);
               
               transaction.update(productRef, {
-                stockBalance: newStock
+                stockBalance: newStock,
+                quantitySold: newQtySold
               });
               
               productUpdates.push({
-                name: saleProduct.name || 'Unknown Product',
-                restored: saleProduct.quantity || 0,
+                name: saleItem.name || 'Unknown Product',
+                restored: totalUnits,
                 newStock: newStock
               });
             }
@@ -808,13 +928,22 @@ const Reports = () => {
 
       // Log the sale deletion activity
       await logActivity(
-        'Sale Deleted',
+        'sale_deleted',
         user.email,
-        `Deleted sale for ${sale.customerName} worth RM ${(sale.total || 0).toFixed(2)}. Sale ID: ${sale.id.substring(0, 8)}. Stock restored for ${productUpdates.length} products.`,
-        'sales'
+        `Deleted ${sale.paymentMethod} sale for ${sale.customerName} worth RM ${(sale.total || 0).toFixed(2)}. Sale ID: ${sale.id.substring(0, 8)}. Stock restored for ${productUpdates.length} products.${deletedPayments > 0 ? ` ${deletedPayments} repayment(s) deleted.` : ''}`,
+        'critical',
+        {
+          saleId: sale.id,
+          customerName: sale.customerName,
+          paymentMethod: sale.paymentMethod,
+          total: sale.total,
+          productsRestored: productUpdates.length,
+          paymentsDeleted: deletedPayments,
+          paymentsAmount: totalPaymentsAmount
+        }
       );
 
-      showSuccess('Sale deleted successfully! Stock has been restored for all products.');
+      showSuccess(`Sale deleted successfully! Stock has been restored for all products.${deletedPayments > 0 ? ` ${deletedPayments} hutang repayment(s) also deleted.` : ''}`);
       
     } catch (error) {
       console.error('Error deleting sale:', error);
@@ -1840,7 +1969,7 @@ const Reports = () => {
                                 {(sale.items || []).map((item, index) => (
                                   <div key={index} className="product-item">
                                     <span className="product-name">{item.name || 'Unknown Product'}</span>
-                                    <span className="product-quantity">×{item.quantity || (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0)}</span>
+                                    <span className="product-quantity">×{calculateTotalUnits(item)} units</span>
                                     <span className="product-price">RM {(item.unitPrice || 0).toFixed(2)}</span>
                                   </div>
                                 ))}

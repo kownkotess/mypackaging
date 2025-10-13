@@ -417,8 +417,15 @@ function Purchases() {
         showSuccess(`Purchase status updated to "${newStatus}"`);
       }
       
-      // Update the selected purchase for the modal
-      setSelectedPurchase(prev => prev ? { ...prev, status: newStatus } : null);
+      // Update the selected purchase for the modal with new status and items
+      setSelectedPurchase(prev => {
+        if (!prev) return null;
+        const updates = { ...prev, status: newStatus };
+        if (updatedItems) {
+          updates.items = updatedItems;
+        }
+        return updates;
+      });
       
     } catch (error) {
       console.error('Error updating purchase status:', error);
@@ -451,18 +458,47 @@ function Purchases() {
       // Verify admin password
       await signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
       
+      // CRITICAL: If purchase was received, revert stock before deleting
+      if ((purchaseToDelete.status === '✅ Received' || purchaseToDelete.status === '📦❗ Received Partial') 
+          && purchaseToDelete.items && purchaseToDelete.items.length > 0) {
+        
+        // First change status to remove stock (this will trigger stock reversion)
+        await updatePurchase(purchaseToDelete.id, { status: '❌ Cancelled' });
+        
+        // Log stock reversion
+        await logActivity(
+          'purchase_stock_reverted',
+          user.email,
+          `Stock reverted before deleting purchase from ${purchaseToDelete.supplierName}. Status was: ${purchaseToDelete.status}`,
+          'action',
+          {
+            purchaseId: purchaseToDelete.id,
+            supplierName: purchaseToDelete.supplierName,
+            previousStatus: purchaseToDelete.status,
+            itemCount: purchaseToDelete.items.length
+          }
+        );
+      }
+      
       // Delete the purchase from Firestore
       await deleteDoc(doc(db, 'purchases', purchaseToDelete.id));
       
       // Log the deletion activity
       await logActivity(
-        'Purchase Deleted',
+        'purchase_deleted',
         user.email,
-        `Deleted purchase from ${purchaseToDelete.supplierName} worth RM ${purchaseToDelete.total?.toFixed(2) || '0.00'}. Purchase ID: ${purchaseToDelete.id.substring(0, 8)}`,
-        'purchases'
+        `Deleted purchase from ${purchaseToDelete.supplierName} worth RM ${purchaseToDelete.total?.toFixed(2) || '0.00'}. Purchase ID: ${purchaseToDelete.id.substring(0, 8)}. Previous status: ${purchaseToDelete.status}`,
+        'critical',
+        {
+          purchaseId: purchaseToDelete.id,
+          supplierName: purchaseToDelete.supplierName,
+          status: purchaseToDelete.status,
+          total: purchaseToDelete.total,
+          itemCount: purchaseToDelete.items?.length || 0
+        }
       );
       
-      showSuccess(`Purchase from ${purchaseToDelete.supplierName} has been deleted successfully`);
+      showSuccess(`Purchase from ${purchaseToDelete.supplierName} has been deleted successfully. Stock has been adjusted if needed.`);
       setShowDeleteConfirmation(false);
       setAdminPassword('');
       setPurchaseToDelete(null);

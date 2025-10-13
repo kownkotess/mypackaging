@@ -35,54 +35,24 @@ const PrintModal = ({ isOpen, onClose, products, selectedProductIds }) => {
               {selectedProducts.map((product) => (
                 <div key={product.id} className="print-label">
                   <div className="label-content">
-                    <div className="label-header">
-                      <h3 className="product-name">{product.name}</h3>
-                      <div className="product-price">RM{Number(product.unitPrice || 0).toFixed(2)}</div>
+                    <h3 className="product-name">{product.name}</h3>
+                    
+                    <div className="qr-section">
+                      {product.qrCode ? (
+                        <img 
+                          src={product.qrCode} 
+                          alt={`QR Code for ${product.name}`} 
+                          className="print-qr-code"
+                        />
+                      ) : (
+                        <div className="no-qr-placeholder">
+                          <div className="no-qr-icon">📱</div>
+                          <div className="no-qr-text">No QR</div>
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="label-body">
-                      <div className="qr-section">
-                        {product.qrCode ? (
-                          <img 
-                            src={product.qrCode} 
-                            alt={`QR Code for ${product.name}`} 
-                            className="print-qr-code"
-                          />
-                        ) : (
-                          <div className="no-qr-placeholder">
-                            <div className="no-qr-icon">📱</div>
-                            <div className="no-qr-text">No QR Code</div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="product-info">
-                        <div className="info-row">
-                          <span className="label-text">ID:</span>
-                          <span className="label-value">{product.id}</span>
-                        </div>
-                        <div className="info-row">
-                          <span className="label-text">Stock:</span>
-                          <span className="label-value">{Number(product.stockBalance || 0)} units</span>
-                        </div>
-                        {product.boxPrice && (
-                          <div className="info-row">
-                            <span className="label-text">Box:</span>
-                            <span className="label-value">RM{Number(product.boxPrice).toFixed(2)}</span>
-                          </div>
-                        )}
-                        {product.packPrice && (
-                          <div className="info-row">
-                            <span className="label-text">Pack:</span>
-                            <span className="label-value">RM{Number(product.packPrice).toFixed(2)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="label-footer">
-                      <div className="scan-instruction">Scan QR Code for Quick Add</div>
-                    </div>
+                    <div className="product-price">RM{Number(product.unitPrice || 0).toFixed(2)}</div>
                   </div>
                 </div>
               ))}

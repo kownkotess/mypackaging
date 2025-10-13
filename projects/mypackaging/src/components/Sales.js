@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getProducts, createSale } from '../lib/firestore';
+import { getProducts, createSale, getUniqueCustomerNames } from '../lib/firestore';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
@@ -31,9 +31,13 @@ const Sales = () => {
   const [receiptNumber, setReceiptNumber] = useState('');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [scanningMessage, setScanningMessage] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [allCustomerNames, setAllCustomerNames] = useState([]);
 
   useEffect(() => {
     loadProducts();
+    loadCustomerNames();
   }, []);
 
   const loadProducts = async () => {
@@ -52,6 +56,41 @@ const Sales = () => {
     }
   };
 
+  const loadCustomerNames = async () => {
+    try {
+      const names = await getUniqueCustomerNames();
+      setAllCustomerNames(names);
+    } catch (error) {
+      console.error('Error loading customer names:', error);
+    }
+  };
+
+  const handleCustomerNameChange = (value) => {
+    setCustomerName(value);
+    
+    if (value.trim().length > 0) {
+      const filtered = allCustomerNames.filter(name =>
+        name.toLowerCase().includes(value.toLowerCase())
+      );
+      setCustomerSuggestions(filtered);
+      setShowCustomerSuggestions(filtered.length > 0);
+    } else {
+      setCustomerSuggestions([]);
+      setShowCustomerSuggestions(false);
+    }
+  };
+
+  const selectCustomerName = (name) => {
+    setCustomerName(name);
+    setShowCustomerSuggestions(false);
+    setCustomerSuggestions([]);
+  };
+
+  const handleCustomerBlur = () => {
+    // Delay hiding to allow click on suggestion
+    setTimeout(() => setShowCustomerSuggestions(false), 150);
+  };
+
   const addProductToSale = (product) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
     
@@ -68,9 +107,9 @@ const Sales = () => {
       packPrice: product.packPrice || null,
       bigBulkQty: product.bigBulkQty || 1,
       smallBulkQty: product.smallBulkQty || 1,
-      qtyBox: 0,
-      qtyPack: 0,
-      qtyLoose: 0,
+      qtyBox: '', // Empty by default, no default 0
+      qtyPack: '', // Empty by default, no default 0
+      qtyLoose: '', // Empty by default, no default 0
       discountBoxPrice: '',
       discountPackPrice: '',
       discountUnitPrice: '',
@@ -140,7 +179,8 @@ const Sales = () => {
 
   const updateProductQuantity = (index, field, value) => {
     const updatedProducts = [...selectedProducts];
-    updatedProducts[index][field] = Math.max(0, Number(value) || 0);
+    // Allow empty string, otherwise ensure non-negative number
+    updatedProducts[index][field] = value === '' ? '' : Math.max(0, Number(value) || 0);
     
     // Calculate subtotal using different pricing logic
     const item = updatedProducts[index];
@@ -289,12 +329,21 @@ const Sales = () => {
       return;
     }
 
-    // Validate stock availability
+    // Validate stock availability and quantities
     for (const item of selectedProducts) {
       const product = products.find(p => p.id === item.productId);
-      const requiredUnits = (item.qtyBox * item.bigBulkQty) + 
-                           (item.qtyPack * item.smallBulkQty) + 
-                           item.qtyLoose;
+      const qtyBox = Number(item.qtyBox) || 0;
+      const qtyPack = Number(item.qtyPack) || 0;
+      const qtyLoose = Number(item.qtyLoose) || 0;
+      const requiredUnits = (qtyBox * item.bigBulkQty) + 
+                           (qtyPack * item.smallBulkQty) + 
+                           qtyLoose;
+      
+      // Ensure at least one quantity is entered
+      if (requiredUnits === 0) {
+        setError(`Please enter a quantity for ${item.name}.`);
+        return;
+      }
       
       if (requiredUnits > product.stockBalance) {
         setError(`Insufficient stock for ${item.name}. Available: ${product.stockBalance} units, Required: ${requiredUnits} units`);
@@ -324,9 +373,9 @@ const Sales = () => {
         items: selectedProducts.map(item => ({
           productId: item.productId,
           name: item.name,
-          qtyBox: item.qtyBox,
-          qtyPack: item.qtyPack,
-          qtyLoose: item.qtyLoose,
+          qtyBox: Number(item.qtyBox) || 0,
+          qtyPack: Number(item.qtyPack) || 0,
+          qtyLoose: Number(item.qtyLoose) || 0,
           unitPrice: item.unitPrice,
           subtotal: item.subtotal
         }))
@@ -447,10 +496,12 @@ const Sales = () => {
               <div key={product.id} className="product-item">
                 <div className="product-info">
                   <h4>{product.name}</h4>
-                  <p>Unit: RM{Number(product.unitPrice).toFixed(2)}</p>
-                  {product.boxPrice && <p>Box: RM{Number(product.boxPrice).toFixed(2)}</p>}
-                  {product.packPrice && <p>Pack: RM{Number(product.packPrice).toFixed(2)}</p>}
-                  <p>Stock: {product.stockBalance} units</p>
+                  <div className="product-details">
+                    <p>Unit: RM{Number(product.unitPrice).toFixed(2)}</p>
+                    {product.boxPrice && <p>Box: RM{Number(product.boxPrice).toFixed(2)}</p>}
+                    {product.packPrice && <p>Pack: RM{Number(product.packPrice).toFixed(2)}</p>}
+                    <p>Stock: {product.stockBalance} units</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => addProductToSale(product)}
@@ -593,12 +644,34 @@ const Sales = () => {
                   
                   <div className="form-group">
                     <label>Customer Name (Optional)</label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter customer name"
-                    />
+                    <div className="customer-input-container">
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => handleCustomerNameChange(e.target.value)}
+                        onBlur={handleCustomerBlur}
+                        onFocus={() => {
+                          if (customerName.trim().length > 0 && customerSuggestions.length > 0) {
+                            setShowCustomerSuggestions(true);
+                          }
+                        }}
+                        placeholder="Enter customer name"
+                        autoComplete="off"
+                      />
+                      {showCustomerSuggestions && customerSuggestions.length > 0 && (
+                        <div className="customer-suggestions">
+                          {customerSuggestions.map((name, index) => (
+                            <div
+                              key={index}
+                              className="customer-suggestion-item"
+                              onClick={() => selectCustomerName(name)}
+                            >
+                              {name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -625,14 +698,29 @@ const Sales = () => {
 
                   <div className="form-group">
                     <label>Payment Method</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="online">Online Transfer</option>
-                      <option value="hutang">Hutang (Credit)</option>
-                    </select>
+                    <div className="payment-method-buttons">
+                      <button
+                        type="button"
+                        className={`payment-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod('cash')}
+                      >
+                        💵 Cash
+                      </button>
+                      <button
+                        type="button"
+                        className={`payment-btn ${paymentMethod === 'online' ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod('online')}
+                      >
+                        💳 Online Transfer
+                      </button>
+                      <button
+                        type="button"
+                        className={`payment-btn ${paymentMethod === 'hutang' ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod('hutang')}
+                      >
+                        📋 Hutang (Credit)
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-group">
