@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
 import NotificationDropdown from './NotificationDropdown';
+import logo from '../assets/logo.png';
 import './MobileNav.css';
 
 const MobileNav = () => {
@@ -25,6 +26,7 @@ const MobileNav = () => {
       <div className="mobile-header">
         <div className="mobile-header-content">
           <div className="mobile-logo-section">
+            <img src={logo} alt="MyPackaging Logo" className="mobile-logo" />
             <div className="mobile-app-name">
               <span className="app-name-main">MYPACKAGING</span>
               <span className="app-name-sub">bybellestore</span>
