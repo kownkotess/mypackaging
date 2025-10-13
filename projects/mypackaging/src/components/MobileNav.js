@@ -82,7 +82,7 @@ const MobileNav = () => {
                   
                   <Link to="/purchases" className="mobile-nav-link" onClick={closeMenu}>
                     <span className="nav-icon">📋</span>
-                    Purchases
+                    Purchases & Returns
                   </Link>
                   
                   <Link to="/hutang" className="mobile-nav-link" onClick={closeMenu}>
