@@ -390,7 +390,12 @@ function Purchases() {
         createdAt: new Date()
       };
 
-      await createReturn(returnData);
+      // Create return with timeout
+      const createPromise = createReturn(returnData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([createPromise, timeoutPromise]);
 
       // Log the return activity
       await logActivity(
@@ -414,8 +419,13 @@ function Purchases() {
 
     } catch (error) {
       console.error('Error creating return:', error);
-      showError(`Failed to create return: ${error.message || 'Please try again.'}`);
-      setError(`Failed to create return: ${error.message || 'Please try again.'}`);
+      if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+        setError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to create return: ${error.message || 'Please try again.'}`);
+        setError(`Failed to create return: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -447,11 +457,19 @@ function Purchases() {
 
     setDeletingReturn(true);
     try {
-      // Verify admin password
-      await signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      // Verify admin password with timeout
+      const authPromise = signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      const authTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([authPromise, authTimeout]);
       
-      // Delete the return (this will also remove stock that was added back)
-      await deleteReturn(returnToDelete.id);
+      // Delete the return (this will also remove stock that was added back) with timeout
+      const deletePromise = deleteReturn(returnToDelete.id);
+      const deleteTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([deletePromise, deleteTimeout]);
       
       // Log the deletion activity
       await logActivity(
@@ -477,6 +495,8 @@ function Purchases() {
       console.error('Error deleting return:', error);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         showError('Invalid password. Please try again.');
+      } else if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
       } else {
         showError('Failed to delete return. Please try again.');
       }
@@ -553,7 +573,12 @@ function Purchases() {
         createdAt: new Date()
       };
 
-      await createPurchase(purchaseData);
+      // Create purchase with timeout
+      const createPromise = createPurchase(purchaseData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([createPromise, timeoutPromise]);
 
       // Log the purchase activity
       await logActivity(
@@ -585,8 +610,13 @@ function Purchases() {
 
     } catch (error) {
       console.error('Error creating purchase:', error);
-      showError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
-      setError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
+      if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+        setError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
+        setError(`Failed to create purchase: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -720,15 +750,23 @@ function Purchases() {
 
     setDeletingPurchase(true);
     try {
-      // Verify admin password
-      await signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      // Verify admin password with timeout
+      const authPromise = signInWithEmailAndPassword(auth, 'admin@mypackaging.com', adminPassword);
+      const authTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([authPromise, authTimeout]);
       
       // CRITICAL: If purchase was received, revert stock before deleting
       if ((purchaseToDelete.status === '✅ Received' || purchaseToDelete.status === '📦❗ Received Partial') 
           && purchaseToDelete.items && purchaseToDelete.items.length > 0) {
         
-        // First change status to remove stock (this will trigger stock reversion)
-        await updatePurchase(purchaseToDelete.id, { status: '❌ Cancelled' });
+        // First change status to remove stock (this will trigger stock reversion) with timeout
+        const updatePromise = updatePurchase(purchaseToDelete.id, { status: '❌ Cancelled' });
+        const updateTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 15000)
+        );
+        await Promise.race([updatePromise, updateTimeout]);
         
         // Log stock reversion
         await logActivity(
@@ -745,8 +783,12 @@ function Purchases() {
         );
       }
       
-      // Delete the purchase from Firestore
-      await deleteDoc(doc(db, 'purchases', purchaseToDelete.id));
+      // Delete the purchase from Firestore with timeout
+      const deletePromise = deleteDoc(doc(db, 'purchases', purchaseToDelete.id));
+      const deleteTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([deletePromise, deleteTimeout]);
       
       // Log the deletion activity
       await logActivity(
@@ -772,6 +814,8 @@ function Purchases() {
       console.error('Error deleting purchase:', error);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         showError('Invalid password. Please try again.');
+      } else if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
       } else {
         showError('Failed to delete purchase. Please try again.');
       }

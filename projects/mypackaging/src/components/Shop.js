@@ -177,7 +177,13 @@ function Shop() {
         createdAt: new Date()
       };
 
-      await createShopUse(shopUseData);
+      // Create shop use with timeout
+      const createPromise = createShopUse(shopUseData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      
+      await Promise.race([createPromise, timeoutPromise]);
 
       await logActivity(
         'shop_use_created',
@@ -196,7 +202,11 @@ function Shop() {
 
     } catch (error) {
       console.error('Error creating shop use:', error);
-      showError(`Failed to create shop use: ${error.message || 'Please try again.'}`);
+      if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to create shop use: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -226,8 +236,19 @@ function Shop() {
     setDeletingShopUse(true);
 
     try {
-      await signInWithEmailAndPassword(auth, user.email, adminPassword);
-      await deleteShopUse(shopUseToDelete.id, shopUseToDelete);
+      // Verify password with timeout
+      const authPromise = signInWithEmailAndPassword(auth, user.email, adminPassword);
+      const authTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([authPromise, authTimeout]);
+
+      // Delete with timeout
+      const deletePromise = deleteShopUse(shopUseToDelete.id, shopUseToDelete);
+      const deleteTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([deletePromise, deleteTimeout]);
 
       await logActivity(
         'shop_use_deleted',
@@ -243,9 +264,13 @@ function Shop() {
       setAdminPassword('');
     } catch (error) {
       console.error('Error deleting shop use:', error);
-      showError(error.code === 'auth/wrong-password'
-        ? 'Incorrect password. Please try again.'
-        : `Failed to delete shop use: ${error.message}`);
+      if (error.code === 'auth/wrong-password') {
+        showError('Incorrect password. Please try again.');
+      } else if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to delete shop use: ${error.message}`);
+      }
     } finally {
       setDeletingShopUse(false);
     }
@@ -316,7 +341,13 @@ function Shop() {
         createdAt: new Date()
       };
 
-      await createTransfer(transferData);
+      // Create transfer with timeout
+      const createPromise = createTransfer(transferData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      
+      await Promise.race([createPromise, timeoutPromise]);
 
       await logActivity(
         'transfer_created',
@@ -336,7 +367,11 @@ function Shop() {
 
     } catch (error) {
       console.error('Error creating transfer:', error);
-      showError(`Failed to create transfer: ${error.message || 'Please try again.'}`);
+      if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to create transfer: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -370,8 +405,19 @@ function Shop() {
     setDeletingTransfer(true);
 
     try {
-      await signInWithEmailAndPassword(auth, user.email, adminPassword);
-      await deleteTransfer(transferToDelete.id, transferToDelete);
+      // Verify password with timeout
+      const authPromise = signInWithEmailAndPassword(auth, user.email, adminPassword);
+      const authTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([authPromise, authTimeout]);
+
+      // Delete with timeout
+      const deletePromise = deleteTransfer(transferToDelete.id, transferToDelete);
+      const deleteTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([deletePromise, deleteTimeout]);
 
       await logActivity(
         'transfer_deleted',
@@ -387,9 +433,13 @@ function Shop() {
       setAdminPassword('');
     } catch (error) {
       console.error('Error deleting transfer:', error);
-      showError(error.code === 'auth/wrong-password'
-        ? 'Incorrect password. Please try again.'
-        : `Failed to delete transfer: ${error.message}`);
+      if (error.code === 'auth/wrong-password') {
+        showError('Incorrect password. Please try again.');
+      } else if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError(`Failed to delete transfer: ${error.message}`);
+      }
     } finally {
       setDeletingTransfer(false);
     }
@@ -431,8 +481,12 @@ function Shop() {
     setLoading(true);
 
     try {
-      // Verify admin password
-      await signInWithEmailAndPassword(auth, user.email, auditPassword);
+      // Verify admin password with timeout
+      const authPromise = signInWithEmailAndPassword(auth, user.email, auditPassword);
+      const authTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([authPromise, authTimeout]);
 
       const productData = products.find(p => p.id === auditProduct);
 
@@ -445,7 +499,12 @@ function Shop() {
         createdByEmail: user.email
       };
 
-      await createStockAudit(auditData);
+      // Create audit with timeout
+      const createPromise = createStockAudit(auditData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      await Promise.race([createPromise, timeoutPromise]);
 
       const difference = Number(auditActualStock) - (productData.stockBalance || 0);
 
@@ -470,6 +529,8 @@ function Shop() {
       console.error('Error creating stock audit:', error);
       if (error.code === 'auth/wrong-password') {
         showError('Incorrect password. Please try again.');
+      } else if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
       } else {
         showError(`Failed to create audit: ${error.message || 'Please try again.'}`);
       }

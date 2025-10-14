@@ -135,6 +135,12 @@ function Hutang() {
     e.preventDefault();
     if (!selectedSale || !paymentAmount) return;
 
+    // Check if online
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to record payments.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -152,7 +158,8 @@ function Hutang() {
         return;
       }
 
-      await runTransaction(db, async (transaction) => {
+      // Record payment with timeout
+      const transactionPromise = runTransaction(db, async (transaction) => {
         const saleRef = doc(db, 'sales', selectedSale.id);
         const saleDoc = await transaction.get(saleRef);
         
@@ -193,6 +200,12 @@ function Hutang() {
           createdBy: user.uid
         });
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      
+      await Promise.race([transactionPromise, timeoutPromise]);
 
       // Log the payment activity for audit trail
       await logActivity(
@@ -219,7 +232,11 @@ function Hutang() {
 
     } catch (error) {
       console.error('Error recording payment:', error);
-      setError('Failed to record payment. Please try again.');
+      if (error.message.includes('timeout')) {
+        setError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        setError('Failed to record payment. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

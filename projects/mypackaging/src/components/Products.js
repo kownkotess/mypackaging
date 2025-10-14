@@ -52,11 +52,22 @@ const Products = () => {
   };
 
   const handleDeleteProduct = async (productId, productName) => {
+    // Check if online
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to delete products.');
+      return;
+    }
+
     showConfirm(
       `Are you sure you want to delete "${productName}"? This action cannot be undone.`,
       async () => {
         try {
-          await deleteProduct(productId);
+          // Delete with timeout
+          const deletePromise = deleteProduct(productId);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout')), 15000)
+          );
+          await Promise.race([deletePromise, timeoutPromise]);
           
           // Log the deletion
           await logActivity(
@@ -74,7 +85,11 @@ const Products = () => {
           setError('');
         } catch (error) {
           console.error('Error deleting product:', error);
-          setError('Failed to delete product. Please try again.');
+          if (error.message.includes('timeout')) {
+            setError('⚠️ Connection timeout. Please check your internet connection and try again.');
+          } else {
+            setError('Failed to delete product. Please try again.');
+          }
         }
       }
     );

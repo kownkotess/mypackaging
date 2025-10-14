@@ -829,6 +829,12 @@ const Reports = () => {
   };
 
   const handleDeleteSale = async (sale) => {
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to delete sales.');
+      return;
+    }
+
     showConfirm(
       `Are you sure you want to delete this sale? This will restore the stock for all products in this transaction.\n\nCustomer: ${sale.customerName}\nTotal: RM ${(sale.total || 0).toFixed(2)}\nPayment Method: ${sale.paymentMethod}\n\n${sale.paymentMethod === 'hutang' ? '⚠️ WARNING: This will also delete all associated hutang repayments!\n\n' : ''}This action cannot be undone.`,
       async () => {
@@ -879,8 +885,8 @@ const Reports = () => {
             }
           }
           
-          // Run transaction to delete sale and restore stock
-          await runTransaction(db, async (transaction) => {
+          // Run transaction to delete sale and restore stock with timeout
+          const transactionPromise = runTransaction(db, async (transaction) => {
             // Get current product data to update stock
         
         // Check if items exist before processing
@@ -925,6 +931,12 @@ const Reports = () => {
 
         console.log('Sale deleted and stock restored:', productUpdates);
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 15000)
+      );
+      
+      await Promise.race([transactionPromise, timeoutPromise]);
 
       // Log the sale deletion activity
       await logActivity(
@@ -947,7 +959,11 @@ const Reports = () => {
       
     } catch (error) {
       console.error('Error deleting sale:', error);
-      showError('Failed to delete sale. Please try again.');
+      if (error.message.includes('timeout')) {
+        showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        showError('Failed to delete sale. Please try again.');
+      }
     }
       }
     );

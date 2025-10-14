@@ -387,7 +387,13 @@ const Sales = () => {
         }))
       };
 
-      await createSale(saleData);
+      // Create sale with timeout
+      const createSalePromise = createSale(saleData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout. Please check your internet connection.')), 15000)
+      );
+      
+      await Promise.race([createSalePromise, timeoutPromise]);
 
       // Log the sale activity
       await logActivity(
@@ -436,7 +442,15 @@ const Sales = () => {
 
     } catch (error) {
       console.error('Error creating sale:', error);
-      setError(error.message || 'Failed to record sale. Please try again.');
+      
+      // Better error messages for different scenarios
+      if (error.message.includes('timeout') || error.message.includes('network')) {
+        setError('⚠️ Connection timeout. Please check your internet connection and try again. You may write this sale on paper for now.');
+      } else if (error.message.includes('Insufficient stock')) {
+        setError(error.message);
+      } else {
+        setError(error.message || 'Failed to record sale. Please check your connection and try again.');
+      }
     } finally {
       setSubmitting(false);
     }

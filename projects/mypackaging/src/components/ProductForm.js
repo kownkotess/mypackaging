@@ -46,6 +46,13 @@ const ProductForm = ({ product, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Check if online
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to save products.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -70,8 +77,12 @@ const ProductForm = ({ product, onClose }) => {
       };
 
       if (product) {
-        // Editing existing product
-        await updateProduct(product.id, productData);
+        // Editing existing product with timeout
+        const updatePromise = updateProduct(product.id, productData);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 15000)
+        );
+        await Promise.race([updatePromise, timeoutPromise]);
         
         // Log the update
         await logActivity(
@@ -87,9 +98,13 @@ const ProductForm = ({ product, onClose }) => {
           }
         );
       } else {
-        // Adding new product
+        // Adding new product with timeout
         productData.startingStock = Number(formData.startingStock) || 0;
-        const newProductId = await addProduct(productData);
+        const addPromise = addProduct(productData);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 15000)
+        );
+        const newProductId = await Promise.race([addPromise, timeoutPromise]);
         
         // Log the creation
         await logActivity(
@@ -109,7 +124,11 @@ const ProductForm = ({ product, onClose }) => {
       onClose();
     } catch (error) {
       console.error('Error saving product:', error);
-      setError(error.message || 'Failed to save product. Please try again.');
+      if (error.message.includes('timeout')) {
+        setError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else {
+        setError(error.message || 'Failed to save product. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
