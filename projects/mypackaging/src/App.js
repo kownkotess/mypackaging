@@ -1,5 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { StatusBar } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import './App.css';
 import './components/RoleBasedAccess.css';
 import { AuthProvider } from './context/AuthContext';
@@ -22,12 +25,97 @@ import InstallPrompt from './components/InstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import DataCleanup from './components/DataCleanup';
 
+function ScrollToTop() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  
+  return null;
+}
+
+function AndroidBackButton() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      console.log('[BackButton] Not running on native platform');
+      return;
+    }
+    
+    console.log('[BackButton] Setting up listener');
+    
+    const handleBackButton = () => {
+      console.log('[BackButton] Back button pressed, location:', location.pathname);
+      
+      // Check if there's a modal open first (highest priority)
+      const hasOpenModal = document.querySelector('.modal-overlay, .report-expand-overlay, .modal, .popup');
+      if (hasOpenModal) {
+        console.log('[BackButton] Modal detected, closing modal');
+        // Close modal by clicking backdrop or close button
+        const closeButton = document.querySelector('.close-button, .modal-close, button[aria-label="Close"]');
+        if (closeButton) {
+          closeButton.click();
+        }
+        return; // Don't exit app, just close modal
+      }
+      
+      // If NOT on dashboard, navigate back to dashboard
+      if (location.pathname !== '/') {
+        console.log('[BackButton] Navigating to dashboard');
+        navigate('/');
+        return; // Don't exit app, navigate instead
+      }
+      
+      // If on dashboard, allow default back button behavior (exit app)
+      console.log('[BackButton] On dashboard, allowing app exit');
+      CapApp.exitApp();
+    };
+    
+    // Listen to back button event
+    const listener = CapApp.addListener('backButton', handleBackButton);
+    
+    console.log('[BackButton] Listener attached');
+    
+    // Cleanup listener on unmount
+    return () => {
+      console.log('[BackButton] Removing listener');
+      listener.then(l => l.remove());
+    };
+  }, [navigate, location]);
+  
+  return null;
+}
+
 function App() {
+  // Configure status bar for mobile app
+  useEffect(() => {
+    const configureStatusBar = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Set overlay mode so content goes under status bar
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          // Set status bar style to light (white icons/text)
+          await StatusBar.setStyle({ style: 'light' });
+          // Set background color to semi-transparent dark for better visibility
+          await StatusBar.setBackgroundColor({ color: '#80000000' }); // 50% transparent black
+        } catch (error) {
+          console.error('StatusBar configuration error:', error);
+        }
+      }
+    };
+    configureStatusBar();
+  }, []);
+
   return (
     <AuthProvider>
       <AuthWrapperProvider>
         <AlertProvider>
           <Router>
+            <ScrollToTop />
+            <AndroidBackButton />
             <div className="App">
               <OfflineIndicator />
               <Toast />

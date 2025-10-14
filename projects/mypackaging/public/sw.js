@@ -1,7 +1,7 @@
 // MyPackaging PWA Service Worker
 // Provides offline functionality and caching strategies
 
-const CACHE_NAME = 'mypackaging-v1.0.3'; // Updated version to force refresh
+const CACHE_NAME = 'mypackaging-v1.0.4'; // Updated version to force refresh - Mobile UI fixes
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',

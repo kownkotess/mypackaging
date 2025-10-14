@@ -346,6 +346,34 @@
   font-size: 13px;
 }
 
+/* Tablet optimization (unfolded foldables) */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .products-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  
+  .products-header h1 {
+    font-size: 1.6rem;
+    margin-right: 15px;
+    flex-shrink: 0;
+  }
+  
+  .header-buttons {
+    flex-wrap: nowrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .header-buttons .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 1200px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);

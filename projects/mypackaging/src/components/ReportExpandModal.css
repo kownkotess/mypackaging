@@ -187,6 +187,27 @@
   .expanded-chart-container {
     height: 350px;
     padding: 15px;
+    overflow-x: auto; /* Enable horizontal scrolling */
+    overflow-y: hidden;
+  }
+  
+  /* Force charts to have fixed width for horizontal scrolling */
+  .expanded-chart-container .recharts-responsive-container {
+    width: 800px !important; /* Fixed width instead of 100% */
+    min-width: 800px !important;
+  }
+}
+
+/* Tablet optimization - also enable horizontal scrolling */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .expanded-chart-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
+  .expanded-chart-container .recharts-responsive-container {
+    width: 900px !important;
+    min-width: 900px !important;
   }
 }
 

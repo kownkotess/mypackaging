@@ -185,6 +185,38 @@
   box-shadow: 0 4px 12px rgba(0, 77, 36, 0.3);
 }
 
+/* Tablet layout optimization (unfolded foldables, small tablets) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .header-content {
+    padding: 15px 20px;
+  }
+  
+  .user-info {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .user-info span {
+    font-size: 0.85rem;
+  }
+  
+  .logout-btn,
+  .change-password-link {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
+  
+  .main-title {
+    font-size: 1.5rem;
+  }
+  
+  .logo {
+    width: 45px;
+    height: 45px;
+  }
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;

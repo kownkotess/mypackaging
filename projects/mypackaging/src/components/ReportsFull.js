@@ -6,6 +6,8 @@ import { RequirePermission } from './RoleComponents';
 import ReturnToTop from './ReturnToTop';
 import ReportExpandModal from './ReportExpandModal';
 import { logActivity } from '../lib/auditLog';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { Capacitor } from '@capacitor/core';
 import { 
   collection, 
   query, 
@@ -810,16 +812,45 @@ const Reports = () => {
   };
 
   // Modal handler functions
-  const openExpandModal = (title, content, icon) => {
+  const openExpandModal = async (title, content, icon) => {
+    // Check if this is a chart modal (ones that should be landscape)
+    const chartModals = [
+      'Cash Flow Analysis',
+      'Peak Sales Hours',
+      'Seasonal Trends',
+      'Stock Turnover Analysis'
+    ];
+    
+    const isChartModal = chartModals.includes(title);
+    
+    // Show modal first
     setExpandedModal({
       isOpen: true,
       title,
       content,
       icon
     });
+    
+    // Lock to landscape for chart modals on mobile/tablet
+    if (isChartModal && Capacitor.isNativePlatform()) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'landscape' });
+      } catch (error) {
+        console.log('Could not lock orientation:', error);
+      }
+    }
   };
 
-  const closeExpandModal = () => {
+  const closeExpandModal = async () => {
+    // Unlock orientation back to portrait when closing
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'portrait' });
+      } catch (error) {
+        console.log('Could not unlock orientation:', error);
+      }
+    }
+    
     setExpandedModal({
       isOpen: false,
       title: '',
@@ -1294,7 +1325,7 @@ const Reports = () => {
                               <td>{formatCurrency(customer.totalSpent)}</td>
                               <td>{customer.visits}</td>
                               <td>{formatCurrency(customer.avgOrderValue)}</td>
-                              <td>{customer.lastVisit || 'N/A'}</td>
+                              <td>{customer.lastVisit ? format(customer.lastVisit, 'MMM dd, yyyy') : 'N/A'}</td>
                             </tr>
                           ))}
                         </tbody>

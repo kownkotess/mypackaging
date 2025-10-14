@@ -503,6 +503,61 @@
   font-weight: bold;
 }
 
+/* Tablet layout optimization (unfolded foldables, small tablets) */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .sales-container {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  
+  /* Force equal widths */
+  .product-selection,
+  .sale-cart {
+    min-width: 0; /* Allow flex shrinking */
+    max-width: 100%;
+  }
+  
+  .sales-page {
+    padding: 15px;
+  }
+  
+  /* Stack product details vertically on tablet to keep Add button inside card */
+  .product-item {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 10px 8px; /* Reduced padding more */
+    margin: 0 12px 8px 12px; /* Reduced side margins */
+  }
+  
+  .product-details {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    align-items: flex-start !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  .product-info {
+    flex: 1;
+    min-width: 0; /* Allow shrinking */
+    margin-right: 8px; /* Space from button */
+  }
+  
+  .product-info p {
+    font-size: 0.8rem;
+  }
+  
+  .product-item button {
+    margin-left: 4px;
+    margin-right: 0; /* Remove right margin */
+    flex-shrink: 0;
+    align-self: center;
+    padding: 6px 10px; /* Smaller button */
+    font-size: 0.8rem;
+    min-width: 60px; /* Ensure button doesn't shrink too much */
+  }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .sales-page {

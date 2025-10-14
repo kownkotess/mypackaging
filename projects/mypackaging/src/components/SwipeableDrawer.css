@@ -1,0 +1,328 @@
+/* Swipeable Drawer Overlay */
+.swipeable-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+  pointer-events: all;
+}
+
+/* Swipeable Drawer */
+.swipeable-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: #004d24;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  will-change: transform;
+  /* Add status bar padding for native apps */
+  padding-top: env(safe-area-inset-top);
+  /* Start hidden off-screen */
+  transform: translateX(-280px);
+}
+
+.swipeable-drawer.dragging {
+  transition: none !important;
+}
+
+.swipeable-drawer.open {
+  transform: translateX(0) !important;
+}
+
+/* User Section */
+.drawer-user-section {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 30px 20px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin-bottom: 15px;
+  border: 2px solid white;
+}
+
+.drawer-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawer-user-email {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.drawer-role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  width: fit-content;
+}
+
+.drawer-role-badge.admin {
+  background: #dc3545;
+  color: white;
+}
+
+.drawer-role-badge.manager {
+  background: #fd7e14;
+  color: white;
+}
+
+.drawer-role-badge.staff {
+  background: #28a745;
+  color: white;
+}
+
+.drawer-role-badge.outsider {
+  background: #6c757d;
+  color: white;
+  border: 2px solid #ff6b35;
+}
+
+/* Navigation Links */
+.drawer-nav-links {
+  flex: 1;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.drawer-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background 0.2s;
+  border-left: 4px solid transparent;
+}
+
+.drawer-nav-link:hover,
+.drawer-nav-link:active {
+  background: rgba(255, 255, 255, 0.1);
+  border-left-color: white;
+}
+
+.drawer-nav-link .nav-icon {
+  font-size: 20px;
+  margin-right: 16px;
+  width: 24px;
+  text-align: center;
+}
+
+.drawer-logout-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(244, 67, 54, 0.2);
+  color: white;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: auto;
+  border-left: 4px solid transparent;
+}
+
+.drawer-logout-button:hover,
+.drawer-logout-button:active {
+  background: rgba(244, 67, 54, 0.4);
+  border-left-color: #f44336;
+}
+
+.drawer-logout-button .nav-icon {
+  font-size: 20px;
+  margin-right: 16px;
+  width: 24px;
+  text-align: center;
+}
+
+/* Mobile Header (still needed for non-swipe interactions) */
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 60px;
+  background: #004d24;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: none;
+  /* Add status bar padding for native apps */
+  padding-top: env(safe-area-inset-top);
+}
+
+.mobile-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 60px;
+  padding: 0 10px;
+  gap: 10px;
+}
+
+/* Left section with hamburger menu, logo, and app name */
+.mobile-left-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.mobile-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid white;
+  flex-shrink: 0;
+}
+
+.mobile-app-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0; /* Allow text truncation */
+}
+
+.app-name-main {
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-name-sub {
+  color: #FBB040;
+  font-size: 9px;
+  font-weight: 400;
+  white-space: nowrap;
+  font-family: 'Brush Script MT', 'Lucida Handwriting', 'Apple Chancery', cursive;
+  font-style: italic;
+}
+
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-role-badge {
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mobile-role-badge.admin {
+  background: #dc3545;
+  color: white;
+}
+
+.mobile-role-badge.manager {
+  background: #fd7e14;
+  color: white;
+}
+
+.mobile-role-badge.staff {
+  background: #28a745;
+  color: white;
+}
+
+.mobile-role-badge.outsider {
+  background: #6c757d;
+  color: white;
+  border: 2px solid #ff6b35;
+}
+
+/* Hamburger Menu Button */
+.mobile-menu-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger {
+  width: 24px;
+  height: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburger span {
+  display: block;
+  height: 3px;
+  background: white;
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
+.hamburger.active span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+  transform: translateY(-10px) rotate(-45deg);
+}
+
+/* Show on mobile only */
+@media (max-width: 768px) {
+  .mobile-header {
+    display: block;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .mobile-header {
+    display: block;
+  }
+}
+
+/* Desktop - hide completely */
+@media (min-width: 1201px) {
+  .swipeable-drawer,
+  .swipeable-overlay,
+  .mobile-header {
+    display: none !important;
+  }
+}

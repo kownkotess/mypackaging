@@ -4,6 +4,12 @@
   "description": "Shop Management System for MyPackaging Store",
   "private": true,
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/screen-orientation": "^7.0.2",
+    "@capacitor/status-bar": "^7.0.3",
     "@emailjs/browser": "^4.4.1",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",

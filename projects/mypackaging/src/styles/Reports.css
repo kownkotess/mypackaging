@@ -380,6 +380,37 @@
   stroke: #f0f0f0;
 }
 
+/* Tablet optimization (unfolded foldables) */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .header-content {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .reports-header h1 {
+    font-size: 1.6rem;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  
+  .header-controls {
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  
+  .date-range-selector,
+  .export-btn,
+  .back-button {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .reports-container {

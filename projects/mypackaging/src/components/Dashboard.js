@@ -6,7 +6,7 @@ import NotificationDropdown from './NotificationDropdown';
 import DashboardAlerts from './DashboardAlerts';
 import SyncStatus from './SyncStatus';
 import ConflictResolution from './ConflictResolution';
-import MobileNav from './MobileNav';
+import SwipeableDrawer from './SwipeableDrawer';
 import offlineDataService from '../lib/offlineDataService';
 import logo from '../assets/logo.png';
 import './Dashboard.css';
@@ -80,8 +80,8 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      {/* Mobile Navigation - shown only on mobile */}
-      <MobileNav />
+      {/* Swipeable Drawer - shown only on mobile/tablet */}
+      <SwipeableDrawer />
       
       {/* Desktop Header - hidden on mobile */}
       <header className="dashboard-header desktop-only">
