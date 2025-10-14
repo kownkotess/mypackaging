@@ -351,6 +351,12 @@ const Sales = () => {
       }
     }
 
+    // Check if online before creating sale
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to create sales. You may write this sale on paper and enter it later when online.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 

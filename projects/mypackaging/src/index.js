@@ -17,15 +17,19 @@ if ('serviceWorker' in navigator) {
       .then((registration) => {
         console.log('SW registered: ', registration);
         
+        // Check for updates every 60 seconds
+        setInterval(() => {
+          registration.update();
+        }, 60000);
+        
         // Listen for updates
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New content is available, prompt user to refresh
-              if (window.confirm('New version available! Reload to update?')) {
-                window.location.reload();
-              }
+              // New service worker available, but with Network First strategy,
+              // the app content is already updated. Just log it.
+              console.log('New service worker installed. App will use latest content on next fetch.');
             }
           });
         });

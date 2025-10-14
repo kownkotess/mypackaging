@@ -1,7 +1,7 @@
 // MyPackaging PWA Service Worker
 // Provides offline functionality and caching strategies
 
-const CACHE_NAME = 'mypackaging-v1.0.2'; // Updated version to force refresh
+const CACHE_NAME = 'mypackaging-v1.0.3'; // Updated version to force refresh
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -71,43 +71,63 @@ addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache First Strategy for static assets (only GET requests)
+  // Network First Strategy for app files (HTML, JS, CSS) - Always get latest!
+  // Cache First for images and static assets only
   if (request.method === 'GET') {
-    event.respondWith(
-      caches.match(request)
-        .then((cachedResponse) => {
-          // Return cached version if available
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-
-          // Otherwise fetch from network
-          return fetch(request)
-            .then((response) => {
-              // Don't cache non-successful responses
-              if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
-              }
-
-              // Clone response before caching
+    const isAppFile = url.pathname.endsWith('.html') || 
+                      url.pathname.endsWith('.js') || 
+                      url.pathname.endsWith('.css') ||
+                      url.pathname === '/' ||
+                      url.pathname.includes('/static/');
+    
+    if (isAppFile) {
+      // NETWORK FIRST for app files - always try to get latest version
+      event.respondWith(
+        fetch(request)
+          .then((response) => {
+            // Clone and cache the new version
+            if (response && response.status === 200) {
               const responseToCache = response.clone();
-
-              caches.open(CACHE_NAME)
-                .then((cache) => {
-                  cache.put(request, responseToCache);
-                });
-
-              return response;
-            })
-            .catch(() => {
-              // Fallback for offline scenarios
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, responseToCache);
+              });
+            }
+            return response;
+          })
+          .catch(() => {
+            // If network fails (offline), use cache as fallback
+            return caches.match(request).then((cachedResponse) => {
+              if (cachedResponse) {
+                return cachedResponse;
+              }
+              // Last resort: return index for navigation
               if (request.destination === 'document') {
                 return caches.match('/');
               }
               return new Response('Offline', { status: 503 });
             });
-        })
-    );
+          })
+      );
+    } else {
+      // CACHE FIRST for images and other assets
+      event.respondWith(
+        caches.match(request)
+          .then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            return fetch(request).then((response) => {
+              if (response && response.status === 200) {
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put(request, responseToCache);
+                });
+              }
+              return response;
+            });
+          })
+      );
+    }
   }
 });
 

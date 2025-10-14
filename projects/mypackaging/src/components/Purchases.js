@@ -344,6 +344,12 @@ function Purchases() {
     e.preventDefault();
     setError('');
 
+    // Check if online
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to create returns.');
+      return;
+    }
+
     if (!returnSupplierName.trim()) {
       setError('Please enter a supplier name.');
       return;
@@ -492,6 +498,12 @@ function Purchases() {
   const handleSubmitPurchase = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Check if online
+    if (!navigator.onLine) {
+      setError('⚠️ No internet connection. Please connect to the internet to create purchases.');
+      return;
+    }
 
     if (!supplierName.trim()) {
       setError('Please enter a supplier name.');

@@ -136,6 +136,12 @@ function Shop() {
   const handleSubmitShopUse = async (e) => {
     e.preventDefault();
 
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to record shop use.');
+      return;
+    }
+
     if (shopUseProducts.length === 0) {
       showError('Please add at least one product.');
       return;
@@ -264,6 +270,12 @@ function Shop() {
   const handleSubmitTransfer = async (e) => {
     e.preventDefault();
 
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to record transfers.');
+      return;
+    }
+
     if (!sourceProduct || !targetProduct) {
       showError('Please select both source and target products.');
       return;
@@ -389,6 +401,12 @@ function Shop() {
 
   const handleSubmitAudit = async (e) => {
     e.preventDefault();
+
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to complete stock audit.');
+      return;
+    }
 
     if (!auditProduct) {
       showError('Please select a product.');
