@@ -11,7 +11,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Dark background for status bar area so white icons are visible */
+/* Emerald green background for status bar area - matches brand color */
 body::before {
   content: '';
   position: fixed;
@@ -19,7 +19,7 @@ body::before {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top);
-  background: rgba(0, 0, 0, 0.6);
+  background: #004d24;
   z-index: 9999;
   pointer-events: none;
 }

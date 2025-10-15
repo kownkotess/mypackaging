@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
   plugins: {
     StatusBar: {
       style: 'light', // Light text/icons (white) for status bar - visible on dark background
-      backgroundColor: '#80004D24', // Semi-transparent green (80 = 50% opacity in hex)
+      backgroundColor: '#004d24', // Solid emerald green background for status bar
       overlaysWebView: true // Allow app to extend under status bar with translucent overlay
     }
   }
