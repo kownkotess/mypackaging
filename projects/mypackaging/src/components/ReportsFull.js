@@ -351,7 +351,9 @@ const Reports = () => {
         roi: roi,
         profit: totalRevenue - totalCost
       };
-    }).sort((a, b) => b.roi - a.roi);
+    })
+    .filter(product => product.revenue > 0) // Only show products that have been sold
+    .sort((a, b) => b.roi - a.roi);
 
     setRoiData(productROI.slice(0, 10));
   }, [sales, products, dateRange]);
@@ -918,50 +920,71 @@ const Reports = () => {
           
           // Run transaction to delete sale and restore stock with timeout
           const transactionPromise = runTransaction(db, async (transaction) => {
-            // Get current product data to update stock
-        
-        // Check if items exist before processing
-        if (sale.items && Array.isArray(sale.items)) {
-          for (const saleItem of sale.items) {
-            const productRef = doc(db, 'products', saleItem.productId);
-            const productDoc = await transaction.get(productRef);
+            // PHASE 1: Read all products first (Firestore requires all reads before writes)
+            const productReads = [];
             
-            if (productDoc.exists()) {
-              const productData = productDoc.data();
-              const currentStock = productData.stockBalance || 0;
-              const currentQtySold = productData.quantitySold || 0;
-              
-              // Calculate total units sold (same formula as when creating sale)
-              const qtyBox = Number(saleItem.qtyBox) || 0;
-              const qtyPack = Number(saleItem.qtyPack) || 0;
-              const qtyLoose = Number(saleItem.qtyLoose) || 0;
-              const bigBulkQty = Number(productData.bigBulkQty) || 1;
-              const smallBulkQty = Number(productData.smallBulkQty) || 1;
-              
-              const totalUnits = (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
-              const newStock = currentStock + totalUnits;
-              const newQtySold = Math.max(0, currentQtySold - totalUnits);
-              
-              transaction.update(productRef, {
-                stockBalance: newStock,
-                quantitySold: newQtySold
-              });
-              
-              productUpdates.push({
-                name: saleItem.name || 'Unknown Product',
-                restored: totalUnits,
-                newStock: newStock
-              });
+            if (sale.items && Array.isArray(sale.items)) {
+              for (const saleItem of sale.items) {
+                const productRef = doc(db, 'products', saleItem.productId);
+                productReads.push({
+                  ref: productRef,
+                  saleItem: saleItem,
+                  docPromise: transaction.get(productRef)
+                });
+              }
             }
-          }
-        }
+            
+            // Wait for all reads to complete
+            const productDocs = await Promise.all(productReads.map(pr => pr.docPromise));
+            
+            // PHASE 2: Process reads and prepare updates
+            const updates = [];
+            productReads.forEach((pr, index) => {
+              const productDoc = productDocs[index];
+              
+              if (productDoc.exists()) {
+                const productData = productDoc.data();
+                const currentStock = productData.stockBalance || 0;
+                const currentQtySold = productData.quantitySold || 0;
+                
+                // Calculate total units sold (same formula as when creating sale)
+                const qtyBox = Number(pr.saleItem.qtyBox) || 0;
+                const qtyPack = Number(pr.saleItem.qtyPack) || 0;
+                const qtyLoose = Number(pr.saleItem.qtyLoose) || 0;
+                const bigBulkQty = Number(productData.bigBulkQty) || 1;
+                const smallBulkQty = Number(productData.smallBulkQty) || 1;
+                
+                const totalUnits = (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+                const newStock = currentStock + totalUnits;
+                const newQtySold = Math.max(0, currentQtySold - totalUnits);
+                
+                updates.push({
+                  ref: pr.ref,
+                  data: {
+                    stockBalance: newStock,
+                    quantitySold: newQtySold
+                  },
+                  info: {
+                    name: pr.saleItem.name || 'Unknown Product',
+                    restored: totalUnits,
+                    newStock: newStock
+                  }
+                });
+              }
+            });
+            
+            // PHASE 3: Execute all writes
+            updates.forEach(update => {
+              transaction.update(update.ref, update.data);
+              productUpdates.push(update.info);
+            });
 
-        // Delete the sale
-        const saleRef = doc(db, 'sales', sale.id);
-        transaction.delete(saleRef);
+            // Delete the sale
+            const saleRef = doc(db, 'sales', sale.id);
+            transaction.delete(saleRef);
 
-        console.log('Sale deleted and stock restored:', productUpdates);
-      });
+            console.log('Sale deleted and stock restored:', productUpdates);
+          });
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout')), 15000)
@@ -990,10 +1013,18 @@ const Reports = () => {
       
     } catch (error) {
       console.error('Error deleting sale:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', JSON.stringify(error, null, 2));
+      
       if (error.message.includes('timeout')) {
         showError('⚠️ Connection timeout. Please check your internet connection and try again.');
+      } else if (error.code === 'permission-denied') {
+        showError('⚠️ Permission denied. Please ensure you are logged in as admin@mypackaging.com');
+      } else if (error.message.includes('Missing or insufficient permissions')) {
+        showError('⚠️ Permission error: You need admin access to delete sales. Current user: ' + (user?.email || 'unknown'));
       } else {
-        showError('Failed to delete sale. Please try again.');
+        showError(`Failed to delete sale: ${error.message || 'Unknown error'}. Please check console for details.`);
       }
     }
       }

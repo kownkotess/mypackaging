@@ -372,14 +372,54 @@
 
 .product-inputs {
   display: grid;
-  grid-template-columns: 80px 100px 120px 100px 150px auto 40px;
+  grid-template-columns: 90px 110px 130px 110px 1fr 50px;
   gap: 0.75rem;
   align-items: end;
+}
+
+/* Desktop layout: specific positioning for inputs */
+.product-inputs .qty-input {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.product-inputs .cost-input {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.product-inputs .discount-type-input {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.product-inputs .discount-value-input {
+  grid-column: 4;
+  grid-row: 1;
+  z-index: 2;
+  position: relative;
+  background: white;
+}
+
+/* Subtotal moves based on whether discount value is shown */
+.product-inputs .subtotal {
+  grid-column: 5;
+  grid-row: 1;
+  background: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.product-inputs .btn-remove-product {
+  grid-column: 6;
+  grid-row: 1;
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
+  background: transparent;
 }
 
 .input-group label {
@@ -387,6 +427,7 @@
   font-size: 0.9rem;
   color: #6c757d;
   font-weight: 500;
+  background: transparent;
 }
 
 .input-group input {
@@ -394,6 +435,15 @@
   border: 1px solid #e9ecef;
   border-radius: 4px;
   font-size: 0.9rem;
+  background: white;
+}
+
+.input-group select {
+  padding: 8px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: white;
 }
 
 .input-group input:focus {
@@ -512,6 +562,62 @@
   font-weight: 500;
   color: #6c757d;
   font-size: 0.9rem;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.invoice-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.invoice-filter label {
+  font-weight: 500;
+  color: #6c757d;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.invoice-filter-input {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #333;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+  min-width: 200px;
+}
+
+.invoice-filter-input:focus {
+  outline: none;
+  border-color: #FBB040;
+  box-shadow: 0 0 0 2px rgba(251, 176, 64, 0.2);
+}
+
+.clear-filter-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-filter-btn:hover {
+  background: #f8f9fa;
+  color: #e74c3c;
 }
 
 .filter-select {
@@ -743,9 +849,102 @@
     grid-template-columns: 1fr;
   }
 
+  /* CRITICAL: Override desktop grid for mobile purchase items */
   .product-inputs {
-    grid-template-columns: 1fr;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "qty cost"
+      "discount discount"
+      "discountval discountval"
+      "subtotal subtotal"
+      "remove remove" !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+  
+  /* Assign grid areas to specific inputs */
+  .product-inputs .qty-input {
+    grid-area: qty;
+  }
+  
+  .product-inputs .cost-input {
+    grid-area: cost;
+  }
+  
+  .product-inputs .discount-type-input {
+    grid-area: discount;
+  }
+  
+  .product-inputs .discount-value-input {
+    grid-area: discountval;
+  }
+  
+  .product-inputs .subtotal {
+    grid-area: subtotal;
+  }
+  
+  .product-inputs .btn-remove-product {
+    grid-area: remove;
+  }
+  
+  /* Make all inputs full width within their grid area */
+  .product-inputs .input-group input,
+  .product-inputs .input-group select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Subtotal styling for mobile */
+  .product-inputs .subtotal {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin-top: 0.25rem;
+  }
+  
+  /* Remove button full width on mobile */
+  .product-inputs .btn-remove-product {
+    width: 100%;
+    height: 44px;
+  }
+
+  /* History header - stack title and filters vertically */
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .history-header h2 {
+    text-align: left;
+  }
+
+  /* Filter controls stack on mobile */
+  .filter-controls {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .date-filter,
+  .invoice-filter {
+    flex-direction: column;
+    align-items: stretch;
     gap: 0.5rem;
+  }
+  
+  .date-filter label,
+  .invoice-filter label {
+    text-align: left;
+  }
+  
+  .filter-select,
+  .invoice-filter-input {
+    width: 100%;
+    min-width: 100%;
   }
 
   .form-actions {
@@ -860,6 +1059,7 @@
   box-shadow: 0 0 0 2px rgba(0, 77, 36, 0.1);
 }
 
+/* REMOVED - This was styling the container div, causing double-box appearance
 .discount-value-input {
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -874,6 +1074,7 @@
   border-color: #004D24;
   box-shadow: 0 0 0 2px rgba(0, 77, 36, 0.1);
 }
+*/
 
 /* Total Breakdown Styling */
 .discount-line {

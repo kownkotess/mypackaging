@@ -43,6 +43,9 @@ function Purchases() {
   // Invoice tracking
   const [invoiceNumber, setInvoiceNumber] = useState('');
   
+  // Invoice filter for purchase history
+  const [invoiceFilter, setInvoiceFilter] = useState('');
+  
   // Supplier auto-suggestion
   const [supplierSuggestions, setSupplierSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -124,37 +127,52 @@ function Purchases() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Filter purchases by date range
+  // Filter purchases by date range and invoice number
   const getFilteredPurchases = () => {
-    if (dateFilter === 'all') return purchases;
+    let filtered = purchases;
     
-    const now = new Date();
-    let startDate;
-    
-    switch (dateFilter) {
-      case '7days':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '4weeks':
-        startDate = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
-        break;
-      case '3months':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-        break;
-      case '6months':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-        break;
-      case '12months':
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        break;
-      default:
-        return purchases;
+    // Filter by date range
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      let startDate;
+      
+      switch (dateFilter) {
+        case '7days':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '4weeks':
+          startDate = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+          break;
+        case '3months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+          break;
+        case '6months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+          break;
+        case '12months':
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        default:
+          break;
+      }
+      
+      if (startDate) {
+        filtered = filtered.filter(purchase => {
+          const purchaseDate = purchase.createdAt?.toDate();
+          return purchaseDate && purchaseDate >= startDate;
+        });
+      }
     }
     
-    return purchases.filter(purchase => {
-      const purchaseDate = purchase.createdAt?.toDate();
-      return purchaseDate && purchaseDate >= startDate;
-    });
+    // Filter by invoice number
+    if (invoiceFilter.trim()) {
+      filtered = filtered.filter(purchase => 
+        purchase.invoiceNumber && 
+        purchase.invoiceNumber.toLowerCase().includes(invoiceFilter.toLowerCase())
+      );
+    }
+    
+    return filtered;
   };
 
   const filteredPurchases = getFilteredPurchases();
@@ -1061,7 +1079,7 @@ function Purchases() {
                         <span className="current-stock">Current Stock: {product.currentStock}</span>
                       </div>
                       <div className="product-inputs">
-                        <div className="input-group">
+                        <div className="input-group qty-input">
                           <label>Qty:</label>
                           <input
                             type="number"
@@ -1070,7 +1088,7 @@ function Purchases() {
                             onChange={(e) => updateProductInPurchase(product.id, 'qty', e.target.value)}
                           />
                         </div>
-                        <div className="input-group">
+                        <div className="input-group cost-input">
                           <label>Cost (RM):</label>
                           <input
                             type="number"
@@ -1080,7 +1098,7 @@ function Purchases() {
                             onChange={(e) => updateProductInPurchase(product.id, 'cost', e.target.value)}
                           />
                         </div>
-                        <div className="input-group">
+                        <div className="input-group discount-type-input">
                           <label>Discount:</label>
                           <select
                             value={product.discountType}
@@ -1092,7 +1110,7 @@ function Purchases() {
                           </select>
                         </div>
                         {product.discountType !== 'none' && (
-                          <div className="input-group">
+                          <div className="input-group discount-value-input">
                             <label>{product.discountType === 'percent' ? 'Discount %:' : 'Discount RM:'}</label>
                             <input
                               type="number"
@@ -1163,21 +1181,44 @@ function Purchases() {
       <div className="purchase-history-section">
         <div className="history-header">
           <h2>Purchase History</h2>
-          <div className="date-filter">
-            <label htmlFor="dateFilter">Filter by:</label>
-            <select 
-              id="dateFilter"
-              value={dateFilter} 
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Time</option>
-              <option value="7days">Last 7 Days</option>
-              <option value="4weeks">Last 4 Weeks</option>
-              <option value="3months">Last 3 Months</option>
-              <option value="6months">Last 6 Months</option>
-              <option value="12months">Last 12 Months</option>
-            </select>
+          <div className="filter-controls">
+            <div className="date-filter">
+              <label htmlFor="dateFilter">Filter by Date:</label>
+              <select 
+                id="dateFilter"
+                value={dateFilter} 
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Time</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="4weeks">Last 4 Weeks</option>
+                <option value="3months">Last 3 Months</option>
+                <option value="6months">Last 6 Months</option>
+                <option value="12months">Last 12 Months</option>
+              </select>
+            </div>
+            <div className="invoice-filter">
+              <label htmlFor="invoiceFilter">Filter by Invoice:</label>
+              <input
+                id="invoiceFilter"
+                type="text"
+                value={invoiceFilter}
+                onChange={(e) => setInvoiceFilter(e.target.value)}
+                placeholder="Search invoice number..."
+                className="invoice-filter-input"
+              />
+              {invoiceFilter && (
+                <button
+                  type="button"
+                  onClick={() => setInvoiceFilter('')}
+                  className="clear-filter-btn"
+                  title="Clear invoice filter"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
         {filteredPurchases.length === 0 ? (
