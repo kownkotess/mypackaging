@@ -12,14 +12,18 @@ import { Capacitor } from '@capacitor/core';
  */
 export async function downloadPDF(doc, filename, showAlert = true) {
   const platform = Capacitor.getPlatform();
+  console.log('downloadPDF called - Platform:', platform);
+  console.log('downloadPDF called - Filename:', filename);
   
   if (platform === 'web') {
     // Web: Use normal jsPDF save
+    console.log('Using web download (doc.save)');
     doc.save(filename);
     return;
   }
   
   // Native (Android/iOS): Save to filesystem WITHOUT share dialog
+  console.log('Using NATIVE download (Filesystem API) - NO SHARE DIALOG');
   try {
     // Get PDF as base64 string
     const pdfOutput = doc.output('datauristring');

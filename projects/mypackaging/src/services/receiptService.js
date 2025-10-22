@@ -403,6 +403,7 @@ Your receipt PDF has been prepared and can be shared with you. Thank you for cho
         // Native mobile share (Android/iOS)
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { Share } = await import('@capacitor/share');
+        const { Clipboard } = await import('@capacitor/clipboard');
         
         // Convert PDF to base64
         const base64Data = doc.output('datauristring').split(',')[1];
@@ -419,16 +420,23 @@ Your receipt PDF has been prepared and can be shared with you. Thank you for cho
           
           console.log('PDF saved to cache for sharing:', result.uri);
           
-          // Share with native share sheet
+          // Copy message to clipboard so user can paste in WhatsApp
+          if (decodedMessage) {
+            await Clipboard.write({
+              string: decodedMessage
+            });
+          }
+          
+          // Share with native share sheet (PDF only, message is in clipboard)
           await Share.share({
             title: `Receipt ${receiptNumber}`,
-            text: decodedMessage,
+            text: decodedMessage, // Some apps might use this
             url: result.uri,
             dialogTitle: 'Share Receipt'
           });
           
           console.log('Share completed successfully');
-          return { success: true };
+          return { success: true, messageCopied: !!decodedMessage };
         } catch (fileError) {
           console.error('Filesystem or Share error:', fileError);
           throw new Error(`Failed to save or share PDF: ${fileError.message}`);

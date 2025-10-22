@@ -81,7 +81,11 @@ const ReceiptModal = ({ isOpen, onClose, saleData, receiptNumber }) => {
       console.log('Share result:', result);
       
       if (result.success) {
-        showSuccess('Receipt shared successfully! 📱');
+        if (result.messageCopied) {
+          showSuccess('Receipt ready to share! 📱 Message copied to clipboard - paste it in WhatsApp after attaching the PDF.');
+        } else {
+          showSuccess('Receipt shared successfully! 📱');
+        }
       } else {
         console.error('Share failed:', result.error);
         showError(`Failed to share receipt: ${result.error || 'Unknown error'}`);

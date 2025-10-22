@@ -4,11 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.bellestore.mypackaging',
   appName: 'MyPackaging',
   webDir: 'build',
-  server: {
-    // Point to your Firebase hosting URL for live updates
-    url: 'https://mypackagingbybellestore.web.app',
-    cleartext: true
-  },
+  // server: {
+  //   // Point to your Firebase hosting URL for live updates
+  //   url: 'https://mypackagingbybellestore.web.app',
+  //   cleartext: true
+  // },
   plugins: {
     StatusBar: {
       style: 'light', // Light text/icons (white) for status bar - visible on dark background
