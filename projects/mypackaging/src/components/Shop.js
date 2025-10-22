@@ -1188,47 +1188,40 @@ function Shop() {
             </div>
           )}
 
-          <div className="records-container">
-            <h3>Extra Cash Entries</h3>
+          {/* Extra Cash List */}
+          <div className="list-container">
+            <h2>Extra Cash Entries</h2>
             {extraCashEntries.length === 0 ? (
-              <p className="no-data">No extra cash entries found.</p>
+              <p className="empty-message">No extra cash entries found.</p>
             ) : (
-              <div className="table-responsive">
-                <table className="shop-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Notes</th>
-                      <th>Created By</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {extraCashEntries.map((entry) => (
-                      <tr key={entry.id}>
-                        <td>{entry.date}</td>
-                        <td className="amount-cell">RM {entry.amount.toFixed(2)}</td>
-                        <td>{entry.notes || '-'}</td>
-                        <td>{entry.createdByEmail}</td>
-                        <td>
-                          {userRole === 'admin' && (
-                            <button
-                              onClick={() => {
-                                setExtraCashToDelete(entry);
-                                setShowExtraCashDeleteConfirm(true);
-                              }}
-                              className="btn-delete"
-                              title="Delete"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="items-grid">
+                {extraCashEntries.map((entry) => (
+                  <div key={entry.id} className="item-card">
+                    <div className="item-header">
+                      <strong>RM {entry.amount.toFixed(2)}</strong>
+                      <span className="item-date">
+                        {entry.date}
+                      </span>
+                    </div>
+                    <div className="item-body">
+                      {entry.notes && <p><strong>Notes:</strong> {entry.notes}</p>}
+                      <p><small>By: {entry.createdByEmail}</small></p>
+                    </div>
+                    <div className="item-actions">
+                      {userRole === 'admin' && (
+                        <button
+                          onClick={() => {
+                            setExtraCashToDelete(entry);
+                            setShowExtraCashDeleteConfirm(true);
+                          }}
+                          className="btn-delete"
+                        >
+                          🗑️ Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
