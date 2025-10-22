@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { generateProductQRCode } from '../utils/qrCodeGenerator';
+import { logActivity } from './auditLog';
 
 export const generateQRCodeForProduct = async (productId, productName) => {
   try {
@@ -1111,6 +1112,70 @@ export const subscribeStockAudits = (callback) => {
   });
 };
 
+// ============================================
+// EXTRA CASH OPERATIONS
+// ============================================
+
+/**
+ * Create a new extra cash entry
+ */
+export const createExtraCash = async (extraCashData) => {
+  try {
+    const extraCashRef = await addDoc(collection(db, 'extraCash'), {
+      ...extraCashData,
+      createdAt: serverTimestamp()
+    });
+
+    await logActivity('create_extra_cash', {
+      extraCashId: extraCashRef.id,
+      amount: extraCashData.amount,
+      date: extraCashData.date
+    });
+
+    return extraCashRef.id;
+  } catch (error) {
+    console.error('Error creating extra cash:', error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribe to extra cash entries
+ */
+export const subscribeExtraCash = (callback) => {
+  const q = query(collection(db, 'extraCash'), orderBy('date', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const extraCashEntries = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(extraCashEntries);
+  }, (error) => {
+    console.error('Error subscribing to extra cash:', error);
+    callback([]);
+  });
+};
+
+/**
+ * Delete an extra cash entry (admin only)
+ */
+export const deleteExtraCash = async (extraCashId, extraCashData) => {
+  try {
+    await deleteDoc(doc(db, 'extraCash', extraCashId));
+
+    await logActivity('delete_extra_cash', {
+      extraCashId,
+      amount: extraCashData.amount,
+      date: extraCashData.date
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting extra cash:', error);
+    throw error;
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -1132,6 +1197,9 @@ const firestoreUtils = {
   deleteTransfer,
   createStockAudit,
   subscribeStockAudits,
+  createExtraCash,
+  subscribeExtraCash,
+  deleteExtraCash,
   bulkUpdateProducts,
   bulkStockAdjustment,
   getUniqueCustomerNames

@@ -45,6 +45,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { downloadPDF } from '../utils/pdfDownload';
+import { subscribeExtraCash } from '../lib/firestore';
 
 const Reports = () => {
   const { showSuccess, showError, showConfirm } = useAlert();
@@ -56,6 +57,7 @@ const Reports = () => {
   const [sales, setSales] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [extraCashEntries, setExtraCashEntries] = useState([]);
   const componentRef = useRef();
 
   // Financial Data
@@ -147,6 +149,12 @@ const Reports = () => {
         }));
         setPayments(paymentsData);
       }));
+
+      // Extra Cash data
+      const extraCashUnsubscribe = subscribeExtraCash((data) => {
+        setExtraCashEntries(data);
+      });
+      unsubscribes.push(extraCashUnsubscribe);
 
       setLoading(false);
     } catch (error) {
@@ -790,6 +798,53 @@ const Reports = () => {
     totals.hutangOutstanding = totals.hutangOriginal - totals.repayments.total;
 
     return totals;
+  };
+
+  // Calculate extra cash for the filtered date range
+  const getExtraCashTotal = () => {
+    // Get date range using the same logic as getFilteredSalesData
+    const now = new Date();
+    let startDate, endDate;
+
+    if (customDateRange.filterType === 'custom') {
+      if (customDateRange.startDate && customDateRange.endDate) {
+        startDate = new Date(customDateRange.startDate);
+        endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date(0);
+        endDate = now;
+      }
+    } else {
+      endDate = now;
+      switch (dateRange) {
+        case 'week':
+          startDate = subDays(now, 7);
+          break;
+        case 'month':
+          startDate = subDays(now, 30);
+          break;
+        case 'quarter':
+          startDate = subDays(now, 90);
+          break;
+        case 'year':
+          startDate = subDays(now, 365);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0);
+          break;
+      }
+    }
+
+    // Filter extra cash entries by date
+    const filteredExtraCash = extraCashEntries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= startDate && entryDate <= endDate;
+    });
+
+    // Sum up the amounts
+    return filteredExtraCash.reduce((total, entry) => total + (parseFloat(entry.amount) || 0), 0);
   };
 
   // Get paginated sales data
@@ -1968,6 +2023,9 @@ const Reports = () => {
                       <span className="total-amount">{formatCurrency(getPaymentMethodTotals().cash)}</span>
                       {getPaymentMethodTotals().repayments.cash > 0 && (
                         <small className="repayment-note">Repayments: {formatCurrency(getPaymentMethodTotals().repayments.cash)}</small>
+                      )}
+                      {getExtraCashTotal() > 0 && (
+                        <small className="repayment-note">Extra Cash: +{formatCurrency(getExtraCashTotal())}</small>
                       )}
                     </div>
                   </div>

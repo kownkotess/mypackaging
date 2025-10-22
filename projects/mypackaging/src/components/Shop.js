@@ -11,7 +11,10 @@ import {
   subscribeTransfers,
   deleteTransfer,
   createStockAudit,
-  subscribeStockAudits
+  subscribeStockAudits,
+  createExtraCash,
+  subscribeExtraCash,
+  deleteExtraCash
 } from '../lib/firestore';
 import { logActivity } from '../lib/auditLog';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -73,6 +76,16 @@ function Shop() {
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [showAuditDetail, setShowAuditDetail] = useState(false);
 
+  // Extra Cash state
+  const [extraCashEntries, setExtraCashEntries] = useState([]);
+  const [showExtraCashForm, setShowExtraCashForm] = useState(false);
+  const [extraCashDate, setExtraCashDate] = useState('');
+  const [extraCashAmount, setExtraCashAmount] = useState('');
+  const [extraCashNotes, setExtraCashNotes] = useState('');
+  const [extraCashToDelete, setExtraCashToDelete] = useState(null);
+  const [showExtraCashDeleteConfirm, setShowExtraCashDeleteConfirm] = useState(false);
+  const [deletingExtraCash, setDeletingExtraCash] = useState(false);
+
   // Subscribe to products
   useEffect(() => {
     const unsubscribe = subscribeProducts((productsData) => {
@@ -104,6 +117,14 @@ function Shop() {
   useEffect(() => {
     const unsubscribe = subscribeStockAudits((data) => {
       setStockAudits(data);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Subscribe to extra cash
+  useEffect(() => {
+    const unsubscribe = subscribeExtraCash((data) => {
+      setExtraCashEntries(data);
     });
     return unsubscribe;
   }, []);
@@ -548,6 +569,98 @@ function Shop() {
     setShowAuditForm(false);
   };
 
+  // ============================================
+  // EXTRA CASH FUNCTIONS
+  // ============================================
+
+  const handleSubmitExtraCash = async (e) => {
+    e.preventDefault();
+
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to add extra cash.');
+      return;
+    }
+
+    if (!extraCashAmount || Number(extraCashAmount) <= 0) {
+      showError('Please enter a valid amount.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const extraCashData = {
+        amount: Number(extraCashAmount),
+        date: extraCashDate || new Date().toISOString().split('T')[0],
+        notes: extraCashNotes.trim() || '',
+        createdBy: user.uid,
+        createdByEmail: user.email
+      };
+
+      await createExtraCash(extraCashData);
+
+      await logActivity(
+        'extra_cash_created',
+        user.email || 'unknown_user',
+        `Extra cash added: RM ${Number(extraCashAmount).toFixed(2)}`,
+        'action',
+        {
+          amount: Number(extraCashAmount),
+          date: extraCashData.date,
+          notes: extraCashNotes.trim()
+        }
+      );
+
+      resetExtraCashForm();
+      showSuccess(`Extra cash RM ${Number(extraCashAmount).toFixed(2)} added successfully!`);
+
+    } catch (error) {
+      console.error('Error adding extra cash:', error);
+      showError(`Failed to add extra cash: ${error.message || 'Please try again.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetExtraCashForm = () => {
+    setExtraCashDate('');
+    setExtraCashAmount('');
+    setExtraCashNotes('');
+    setShowExtraCashForm(false);
+  };
+
+  const handleDeleteExtraCash = async () => {
+    if (!extraCashToDelete) return;
+
+    setDeletingExtraCash(true);
+
+    try {
+      await deleteExtraCash(extraCashToDelete.id, extraCashToDelete);
+
+      await logActivity(
+        'extra_cash_deleted',
+        user.email || 'unknown_user',
+        `Extra cash deleted: RM ${extraCashToDelete.amount.toFixed(2)}`,
+        'action',
+        {
+          amount: extraCashToDelete.amount,
+          date: extraCashToDelete.date
+        }
+      );
+
+      showSuccess('Extra cash entry deleted successfully!');
+      setShowExtraCashDeleteConfirm(false);
+      setExtraCashToDelete(null);
+
+    } catch (error) {
+      console.error('Error deleting extra cash:', error);
+      showError(`Failed to delete extra cash: ${error.message || 'Please try again.'}`);
+    } finally {
+      setDeletingExtraCash(false);
+    }
+  };
+
   // Filter products for search (Shop Use tab)
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -601,6 +714,14 @@ function Shop() {
         >
           Transfer
         </button>
+        {(userRole === 'admin' || userRole === 'manager') && (
+          <button
+            className={`tab-btn ${activeTab === 'extraCash' ? 'active' : ''}`}
+            onClick={() => setActiveTab('extraCash')}
+          >
+            Extra Cash
+          </button>
+        )}
         {userRole === 'admin' && (
           <button
             className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
@@ -1000,6 +1121,153 @@ function Shop() {
             )}
           </div>
         </>
+      )}
+
+      {/* EXTRA CASH TAB - Manager and Admin */}
+      {activeTab === 'extraCash' && (userRole === 'admin' || userRole === 'manager') && (
+        <>
+          <div className="tab-actions">
+            {!showExtraCashForm && (
+              <button onClick={() => setShowExtraCashForm(true)} className="btn-primary">
+                + Add Extra Cash
+              </button>
+            )}
+          </div>
+
+          {showExtraCashForm && (
+            <div className="form-container">
+              <h2>Add Extra Cash</h2>
+              <form onSubmit={handleSubmitExtraCash} className="shop-form">
+                <div className="form-group">
+                  <label>Date (optional, uses current date if empty)</label>
+                  <input
+                    type="date"
+                    value={extraCashDate}
+                    onChange={(e) => setExtraCashDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Amount (RM) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={extraCashAmount}
+                    onChange={(e) => setExtraCashAmount(e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Notes (optional)</label>
+                  <textarea
+                    value={extraCashNotes}
+                    onChange={(e) => setExtraCashNotes(e.target.value)}
+                    placeholder="e.g., Found in register during closing"
+                    rows="2"
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary" disabled={loading}>
+                    {loading ? 'Adding...' : 'Add Extra Cash'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetExtraCashForm}
+                    className="btn-secondary"
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="records-container">
+            <h3>Extra Cash Entries</h3>
+            {extraCashEntries.length === 0 ? (
+              <p className="no-data">No extra cash entries found.</p>
+            ) : (
+              <div className="table-responsive">
+                <table className="shop-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Amount</th>
+                      <th>Notes</th>
+                      <th>Created By</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extraCashEntries.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{entry.date}</td>
+                        <td className="amount-cell">RM {entry.amount.toFixed(2)}</td>
+                        <td>{entry.notes || '-'}</td>
+                        <td>{entry.createdByEmail}</td>
+                        <td>
+                          {userRole === 'admin' && (
+                            <button
+                              onClick={() => {
+                                setExtraCashToDelete(entry);
+                                setShowExtraCashDeleteConfirm(true);
+                              }}
+                              className="btn-delete"
+                              title="Delete"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Delete Extra Cash Confirmation Modal */}
+      {showExtraCashDeleteConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>⚠️ Delete Extra Cash Entry?</h3>
+            <p>Are you sure you want to delete this extra cash entry?</p>
+            <div className="extra-cash-delete-details">
+              <p><strong>Amount:</strong> RM {extraCashToDelete?.amount.toFixed(2)}</p>
+              <p><strong>Date:</strong> {extraCashToDelete?.date}</p>
+              {extraCashToDelete?.notes && <p><strong>Notes:</strong> {extraCashToDelete.notes}</p>}
+            </div>
+            <p className="warning-text">⚠️ This action cannot be undone and will remove the extra cash note from sales reports.</p>
+            <div className="modal-actions">
+              <button
+                onClick={handleDeleteExtraCash}
+                className="btn-danger"
+                disabled={deletingExtraCash}
+              >
+                {deletingExtraCash ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowExtraCashDeleteConfirm(false);
+                  setExtraCashToDelete(null);
+                }}
+                className="btn-secondary"
+                disabled={deletingExtraCash}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* STOCK AUDIT TAB - Admin Only */}

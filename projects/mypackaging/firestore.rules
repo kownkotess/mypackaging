@@ -130,6 +130,16 @@ service cloud.firestore {
       allow update, delete: if false; // Audits cannot be modified or deleted
     }
     
+    // Extra Cash collection
+    // Admin: full access | Manager: view, create | Staff: no access
+    // Extra cash entries for tracking additional cash found in register
+    match /extraCash/{extraCashId} {
+      allow read: if isManagerOrAdmin(); // Admin and Manager can view
+      allow create: if isManagerOrAdmin(); // Admin and Manager can create
+      allow delete: if isAdmin(); // Only admin can delete
+      allow update: if false; // Cannot be modified
+    }
+    
     // Users collection (for user management)
     // Admin: full access | All authenticated users: can read all profiles and update their own status
     match /users/{userId} {

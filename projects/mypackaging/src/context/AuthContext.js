@@ -44,6 +44,11 @@ export const PERMISSIONS = {
   MANAGE_HUTANG: 'manage_hutang',
   APPROVE_CREDIT: 'approve_credit',
   
+  // Extra Cash permissions
+  VIEW_EXTRA_CASH: 'view_extra_cash',
+  CREATE_EXTRA_CASH: 'create_extra_cash',
+  DELETE_EXTRA_CASH: 'delete_extra_cash',
+  
   // Analytics and reporting
   VIEW_ANALYTICS: 'view_analytics',
   VIEW_REPORTS: 'view_reports',
@@ -78,6 +83,8 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_HUTANG,
     PERMISSIONS.MANAGE_HUTANG,
     PERMISSIONS.APPROVE_CREDIT,
+    PERMISSIONS.VIEW_EXTRA_CASH,
+    PERMISSIONS.CREATE_EXTRA_CASH,
     PERMISSIONS.VIEW_ANALYTICS,
     PERMISSIONS.VIEW_REPORTS,
     PERMISSIONS.EXPORT_DATA
