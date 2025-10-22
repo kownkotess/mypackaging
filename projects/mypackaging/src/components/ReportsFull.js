@@ -44,6 +44,7 @@ import emailService from '../services/emailService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import { downloadPDF } from '../utils/pdfDownload';
 
 const Reports = () => {
   const { showSuccess, showError, showConfirm } = useAlert();
@@ -506,8 +507,11 @@ const Reports = () => {
       }
       
       console.log('Saving PDF...');
-      pdf.save(`MyPackaging-Report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      const filename = `MyPackaging-Report-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      await downloadPDF(pdf, filename, true);
       console.log('PDF export successful!');
+      
+      showSuccess('Report PDF downloaded successfully!');
       
       // Reset button text
       if (originalButton) originalButton.textContent = '📄 PDF';

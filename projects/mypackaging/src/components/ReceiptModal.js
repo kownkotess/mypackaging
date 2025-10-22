@@ -68,20 +68,27 @@ const ReceiptModal = ({ isOpen, onClose, saleData, receiptNumber }) => {
 
   const handleWhatsAppShare = async () => {
     try {
-      // Download PDF first
-      await handleDownloadPDF();
+      console.log('Starting WhatsApp share...');
+      console.log('Sale data:', saleData);
+      console.log('Receipt number:', receiptNumber);
       
       // Generate WhatsApp message
       const message = receiptService.generateWhatsAppMessage(saleData, receiptNumber);
-      const whatsappUrl = `https://wa.me/?text=${message}`;
+      console.log('Generated message:', message);
       
-      // Open WhatsApp
-      window.open(whatsappUrl, '_blank');
+      // Share via native share sheet with PDF attached
+      const result = await receiptService.shareReceipt(saleData, receiptNumber, message);
+      console.log('Share result:', result);
       
-      showSuccess('PDF downloaded and WhatsApp opened! Attach the downloaded PDF to your message.');
+      if (result.success) {
+        showSuccess('Receipt shared successfully! 📱');
+      } else {
+        console.error('Share failed:', result.error);
+        showError(`Failed to share receipt: ${result.error || 'Unknown error'}`);
+      }
     } catch (error) {
-      console.error('Failed to prepare WhatsApp share:', error);
-      showError('Failed to prepare WhatsApp message. Please try again.');
+      console.error('WhatsApp share error:', error);
+      showError(`Failed to share receipt: ${error.message}`);
     }
   };
 
@@ -176,9 +183,9 @@ const ReceiptModal = ({ isOpen, onClose, saleData, receiptNumber }) => {
             <button 
               className="btn success"
               onClick={handleWhatsAppShare}
-              title="Download PDF and open WhatsApp to send to customer"
+              title="Share receipt PDF via WhatsApp with customer"
             >
-              📱 WhatsApp Share
+              📱 Share via WhatsApp
             </button>
 
             <button 

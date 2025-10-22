@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import businessInfoService from './businessInfoService';
+import { downloadPDF } from '../utils/pdfDownload';
 
 class ReceiptService {
   constructor() {
@@ -323,6 +324,7 @@ class ReceiptService {
 
   /**
    * Download PDF receipt with enhanced filename
+   * Works on both web and native (Android/iOS)
    */
   async downloadReceipt(saleData, receiptNumber, customFilename = null) {
     const doc = await this.generateReceipt(saleData, receiptNumber);
@@ -337,7 +339,8 @@ class ReceiptService {
       filename = `Receipt_${receiptNumber}_${cleanCustomerName}_${dateStr}.pdf`;
     }
     
-    doc.save(filename);
+    // Use the native-compatible download function
+    await downloadPDF(doc, filename, true);
     console.log(`Receipt downloaded: ${filename}`);
     return filename;
   }
@@ -379,6 +382,81 @@ Your receipt PDF has been prepared and can be shared with you. Thank you for cho
   async getReceiptBase64(saleData, receiptNumber) {
     const doc = await this.generateReceipt(saleData, receiptNumber);
     return doc.output('datauristring');
+  }
+
+  /**
+   * Share receipt via native share sheet (WhatsApp, etc.)
+   * Works on both web and mobile (Capacitor)
+   */
+  async shareReceipt(saleData, receiptNumber, message = '') {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      const isNative = Capacitor.isNativePlatform();
+      
+      // Generate the PDF document
+      const doc = await this.generateReceipt(saleData, receiptNumber);
+      
+      // Decode URL-encoded message
+      const decodedMessage = message ? decodeURIComponent(message) : '';
+      
+      if (isNative) {
+        // Native mobile share (Android/iOS)
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+        
+        // Convert PDF to base64
+        const base64Data = doc.output('datauristring').split(',')[1];
+        
+        // Save to cache directory for sharing
+        const filename = `Receipt-${receiptNumber}.pdf`;
+        
+        try {
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: base64Data,
+            directory: Directory.Cache
+          });
+          
+          console.log('PDF saved to cache for sharing:', result.uri);
+          
+          // Share with native share sheet
+          await Share.share({
+            title: `Receipt ${receiptNumber}`,
+            text: decodedMessage,
+            url: result.uri,
+            dialogTitle: 'Share Receipt'
+          });
+          
+          console.log('Share completed successfully');
+          return { success: true };
+        } catch (fileError) {
+          console.error('Filesystem or Share error:', fileError);
+          throw new Error(`Failed to save or share PDF: ${fileError.message}`);
+        }
+      } else {
+        // Web fallback - download PDF and open share if available
+        const pdfBlob = doc.output('blob');
+        
+        if (navigator.share) {
+          // Web Share API (if supported)
+          const file = new File([pdfBlob], `Receipt-${receiptNumber}.pdf`, { type: 'application/pdf' });
+          await navigator.share({
+            title: `Receipt ${receiptNumber}`,
+            text: decodedMessage,
+            files: [file]
+          });
+          return { success: true };
+        } else {
+          // Fallback - just download
+          doc.save(`Receipt-${receiptNumber}.pdf`);
+          alert('PDF downloaded. Please manually share via WhatsApp.');
+          return { success: true };
+        }
+      }
+    } catch (error) {
+      console.error('Share receipt error:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   /**
