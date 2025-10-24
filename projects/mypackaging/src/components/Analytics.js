@@ -25,6 +25,8 @@ import {
 import { format, subDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { db } from '../firebase';
 import ReportExpandModal from './ReportExpandModal';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { Capacitor } from '@capacitor/core';
 import '../styles/Analytics.css';
 
 const Analytics = () => {
@@ -237,9 +239,12 @@ const Analytics = () => {
       if (!profitByDate[dateKey]) {
         profitByDate[dateKey] = { date: dateKey, revenue: 0, costs: 0, profit: 0 };
       }
-      // Calculate total cost from line items
+      // Calculate total cost from line items (cost × quantity)
       if (purchase.items && Array.isArray(purchase.items)) {
-        const totalCost = purchase.items.reduce((sum, item) => sum + (item.cost || 0), 0);
+        const totalCost = purchase.items.reduce((sum, item) => {
+          const itemCost = (item.cost || 0) * (item.quantity || 0);
+          return sum + itemCost;
+        }, 0);
         profitByDate[dateKey].costs += totalCost;
       }
     });
@@ -348,16 +353,45 @@ const Analytics = () => {
   };
 
   // Modal handler functions
-  const openExpandModal = (title, content, icon) => {
+  const openExpandModal = async (title, content, icon) => {
+    // Check if this is a chart modal (ones that should be landscape)
+    const chartModals = [
+      'Sales Trends',
+      'Top Products',
+      'Profit Analysis',
+      'Stock Turnover Analysis'
+    ];
+    
+    const isChartModal = chartModals.includes(title);
+    
+    // Show modal first
     setExpandedModal({
       isOpen: true,
       title,
       content,
       icon
     });
+    
+    // Lock to landscape for chart modals on mobile/tablet
+    if (isChartModal && Capacitor.isNativePlatform()) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'landscape' });
+      } catch (error) {
+        console.log('Could not lock orientation:', error);
+      }
+    }
   };
 
-  const closeExpandModal = () => {
+  const closeExpandModal = async () => {
+    // Unlock orientation back to portrait when closing
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'portrait' });
+      } catch (error) {
+        console.log('Could not unlock orientation:', error);
+      }
+    }
+    
     setExpandedModal({
       isOpen: false,
       title: '',
@@ -482,16 +516,23 @@ const Analytics = () => {
               onClick={() => openExpandModal(
                 'Top Products', 
                 <div className="expanded-chart-container">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topProducts} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
-                      <YAxis dataKey="name" type="category" width={120} />
-                      <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="#82ca9d" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {topProducts.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topProducts} layout="horizontal">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
+                        <YAxis dataKey="name" type="category" width={120} />
+                        <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                        <Legend />
+                        <Bar dataKey="revenue" fill="#82ca9d" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
+                      <p>No product sales data available yet.</p>
+                      <p>Start making sales to see top products!</p>
+                    </div>
+                  )}
                 </div>,
                 '🏆'
               )}
@@ -500,15 +541,21 @@ const Analytics = () => {
               ↗️
             </button>
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={topProducts.slice(0, 5)} layout="horizontal">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
-              <YAxis dataKey="name" type="category" width={80} />
-              <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-              <Bar dataKey="revenue" fill="#82ca9d" />
-            </BarChart>
-          </ResponsiveContainer>
+          {topProducts.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topProducts.slice(0, 5)} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
+                <YAxis dataKey="name" type="category" width={80} />
+                <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                <Bar dataKey="revenue" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
+              <p>No product sales data yet</p>
+            </div>
+          )}
         </div>
 
         {/* Payment Breakdown */}
@@ -799,30 +846,37 @@ const Analytics = () => {
               onClick={() => openExpandModal(
                 'Top Customers Analysis', 
                 <div className="expanded-table-container">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Rank</th>
-                        <th>Customer</th>
-                        <th>Total Spent</th>
-                        <th>Visits</th>
-                        <th>Avg Order</th>
-                        <th>Last Visit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customerInsights.map((customer, index) => (
-                        <tr key={index}>
-                          <td>#{index + 1}</td>
-                          <td>{customer.name}</td>
-                          <td>{formatCurrency(customer.totalSpent)}</td>
-                          <td>{customer.visits}</td>
-                          <td>{formatCurrency(customer.avgSpent)}</td>
-                          <td>{customer.lastVisit || 'N/A'}</td>
+                  {customerInsights.length > 0 ? (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Customer</th>
+                          <th>Total Spent</th>
+                          <th>Visits</th>
+                          <th>Avg Order</th>
+                          <th>Last Visit</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {customerInsights.map((customer, index) => (
+                          <tr key={index}>
+                            <td>#{index + 1}</td>
+                            <td>{customer.name}</td>
+                            <td>{formatCurrency(customer.totalSpent)}</td>
+                            <td>{customer.visits}</td>
+                            <td>{formatCurrency(customer.avgSpent)}</td>
+                            <td>{customer.lastVisit ? format(customer.lastVisit, 'MMM dd, yyyy') : 'N/A'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
+                      <p>No customer data available yet.</p>
+                      <p>Start making sales to see customer insights!</p>
+                    </div>
+                  )}
                 </div>,
                 '👥'
               )}
@@ -832,26 +886,32 @@ const Analytics = () => {
             </button>
           </h3>
           <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Total Spent</th>
-                  <th>Visits</th>
-                  <th>Avg Order</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customerInsights.slice(0, 5).map((customer, index) => (
-                  <tr key={index}>
-                    <td>{customer.name}</td>
-                    <td>{formatCurrency(customer.totalSpent)}</td>
-                    <td>{customer.visits}</td>
-                    <td>{formatCurrency(customer.avgSpent)}</td>
+            {customerInsights.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Total Spent</th>
+                    <th>Visits</th>
+                    <th>Avg Order</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {customerInsights.slice(0, 5).map((customer, index) => (
+                    <tr key={index}>
+                      <td>{customer.name}</td>
+                      <td>{formatCurrency(customer.totalSpent)}</td>
+                      <td>{customer.visits}</td>
+                      <td>{formatCurrency(customer.avgSpent)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                <p>No customer data yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
