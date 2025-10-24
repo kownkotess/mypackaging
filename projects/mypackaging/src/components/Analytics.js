@@ -179,11 +179,10 @@ const Analytics = () => {
             productSales[item.productId] = {
               productId: item.productId,
               name: item.name,
-              quantitySold: 0,
               revenue: 0
             };
           }
-          productSales[item.productId].quantitySold += item.quantity || 0;
+          // Just accumulate revenue from subtotal
           productSales[item.productId].revenue += item.subtotal || 0;
         });
       }
@@ -239,11 +238,10 @@ const Analytics = () => {
       if (!profitByDate[dateKey]) {
         profitByDate[dateKey] = { date: dateKey, revenue: 0, costs: 0, profit: 0 };
       }
-      // Calculate total cost from line items (cost × quantity)
+      // Calculate total cost from line items using subtotal (already includes qty × cost with discounts)
       if (purchase.items && Array.isArray(purchase.items)) {
         const totalCost = purchase.items.reduce((sum, item) => {
-          const itemCost = (item.cost || 0) * (item.quantity || 0);
-          return sum + itemCost;
+          return sum + (item.subtotal || 0);
         }, 0);
         profitByDate[dateKey].costs += totalCost;
       }
