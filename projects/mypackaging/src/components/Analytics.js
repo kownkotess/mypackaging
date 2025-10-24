@@ -516,13 +516,13 @@ const Analytics = () => {
                 <div className="expanded-chart-container">
                   {topProducts.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={topProducts} layout="horizontal">
+                      <BarChart data={topProducts}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
-                        <YAxis dataKey="name" type="category" width={120} />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} />
+                        <YAxis tickFormatter={(value) => `RM ${value}`} />
                         <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
                         <Legend />
-                        <Bar dataKey="revenue" fill="#82ca9d" />
+                        <Bar dataKey="revenue" fill="#82ca9d" name="Revenue" />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -541,10 +541,10 @@ const Analytics = () => {
           </h3>
           {topProducts.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topProducts.slice(0, 5)} layout="horizontal">
+              <BarChart data={topProducts.slice(0, 5)}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tickFormatter={(value) => `RM ${value}`} />
-                <YAxis dataKey="name" type="category" width={80} />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis tickFormatter={(value) => `RM ${value}`} />
                 <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
                 <Bar dataKey="revenue" fill="#82ca9d" />
               </BarChart>
@@ -732,25 +732,32 @@ const Analytics = () => {
               ↗️
             </button>
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={hutangAging}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {hutangAging.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-            </PieChart>
-          </ResponsiveContainer>
+          {hutangAging.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={hutangAging}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {hutangAging.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
+              <p>No outstanding credit (Hutang)</p>
+              <p style={{ fontSize: '0.9em', marginTop: '10px' }}>Credit sales will appear here</p>
+            </div>
+          )}
         </div>
       </div>
 
