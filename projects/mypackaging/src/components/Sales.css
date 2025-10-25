@@ -477,7 +477,7 @@
   font-style: italic;
 }
 
-.form-group input,
+.form-group input:not([type="checkbox"]),
 .form-group select {
   width: 100%;
   padding: 10px 12px;
@@ -487,7 +487,7 @@
   transition: border-color 0.3s ease;
 }
 
-.form-group input:focus,
+.form-group input:not([type="checkbox"]):focus,
 .form-group select:focus {
   outline: none;
   border-color: #004D24;
@@ -590,7 +590,7 @@
   /* No special adjustment needed for tablet - uses base styles */
   
   /* Mobile form improvements */
-  .form-group input,
+  .form-group input:not([type="checkbox"]),
   .form-group select {
     min-height: 48px;
     font-size: 16px;
@@ -736,7 +736,7 @@
     padding: 18px 24px;
   }
   
-  .form-group input,
+  .form-group input:not([type="checkbox"]),
   .form-group select {
     font-size: 18px;
     min-height: 52px;
@@ -859,6 +859,60 @@
   border-color: #004D24;
   color: white;
   box-shadow: 0 2px 8px rgba(0, 77, 36, 0.3);
+}
+
+/* Multi-payment checkbox */
+.multi-payment-checkbox {
+  width: 16px !important;
+  height: 16px !important;
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0;
+  accent-color: #004D24;
+  -webkit-appearance: checkbox !important;
+  -moz-appearance: checkbox !important;
+  appearance: checkbox !important;
+}
+
+/* Multi-payment container */
+.multi-payment-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.multi-payment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.multi-payment-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.multi-payment-row input[type="number"] {
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.multi-payment-row input[type="number"]:not(:disabled):focus {
+  border-color: #004D24;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 77, 36, 0.1);
+}
+
+.multi-payment-row input[type="number"]:disabled {
+  background-color: #e0e0e0;
+  cursor: not-allowed;
+  color: #999;
 }
 
 /* Mobile responsive for payment buttons */

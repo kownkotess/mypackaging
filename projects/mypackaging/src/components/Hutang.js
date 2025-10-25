@@ -8,7 +8,8 @@ import {
   doc, 
   serverTimestamp,
   runTransaction,
-  getDocs
+  getDocs,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContextWrapper';
@@ -16,6 +17,7 @@ import { useAlert } from '../context/AlertContext';
 import { RequirePermission } from './RoleComponents';
 import { logActivity } from '../lib/auditLog';
 import '../styles/Hutang.css';
+import { centsToAmount } from '../lib/money';
 
 function Hutang() {
   // State management
@@ -24,6 +26,7 @@ function Hutang() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0,10));
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, overdue, recent
   const [sortBy, setSortBy] = useState('date'); // date, amount, customer
@@ -87,7 +90,11 @@ function Hutang() {
     const overdueCount = creditSales.filter(sale => {
       const saleDate = sale.createdAt?.toDate();
       const daysSince = saleDate ? Math.floor((new Date() - saleDate) / (1000 * 60 * 60 * 24)) : 0;
-      return daysSince > 30 && sale.remaining > 0;
+      const remaining = sale.remaining || 0;
+      // Fix floating point precision: treat anything < 0.01 as zero
+      const isOverdue = daysSince > 30 && remaining >= 0.01;
+      
+      return isOverdue;
     }).length;
 
     return { totalOutstanding, totalCustomers, overdueCount };
@@ -104,7 +111,8 @@ function Hutang() {
       if (filterStatus === 'overdue') {
         const saleDate = sale.createdAt?.toDate();
         const daysSince = saleDate ? Math.floor((new Date() - saleDate) / (1000 * 60 * 60 * 24)) : 0;
-        return daysSince > 30 && sale.remaining > 0;
+        // FIXED: Only show as overdue if remaining >= 0.01 (fix floating point precision)
+        return daysSince > 30 && (sale.remaining || 0) >= 0.01;
       } else if (filterStatus === 'recent') {
         const saleDate = sale.createdAt?.toDate();
         const daysSince = saleDate ? Math.floor((new Date() - saleDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -145,15 +153,18 @@ function Hutang() {
     setError('');
 
     try {
-      const amount = Number(paymentAmount);
-      const remaining = selectedSale.remaining || 0;
+  const amount = Number(paymentAmount);
+  const remaining = selectedSale.remaining || 0;
 
       if (amount <= 0) {
         setError('Payment amount must be greater than 0');
         return;
       }
+      // Use cents for comparisons to avoid floating point issues
+      const amountCents = Math.round(amount * 100);
+      const remainingCents = Math.round((selectedSale.remaining || 0) * 100);
 
-      if (amount > remaining) {
+      if (amountCents > remainingCents) {
         setError('Payment amount cannot exceed remaining balance');
         return;
       }
@@ -167,10 +178,20 @@ function Hutang() {
           throw new Error('Sale not found');
         }
 
-        const currentData = saleDoc.data();
-        const newRemaining = (currentData.remaining || 0) - amount;
-        const newPaidAmount = (currentData.paidAmount || 0) + amount;
-        const newStatus = newRemaining <= 0 ? 'Paid' : 'Hutang';
+  const currentData = saleDoc.data();
+  const currentRemainingCents = Math.round((currentData.remaining || 0) * 100);
+  const currentPaidCents = Math.round((currentData.paidAmount || 0) * 100);
+
+  const newRemainingCents = Math.max(0, currentRemainingCents - amountCents);
+  const newPaidCents = currentPaidCents + amountCents;
+  const newRemaining = centsToAmount(newRemainingCents);
+  const newPaidAmount = centsToAmount(newPaidCents);
+  const newStatus = newRemainingCents < 1 ? 'Paid' : 'Hutang'; // < 1 cent treated as paid
+
+        // Convert payment date string to Timestamp
+        const paymentTimestamp = paymentDate 
+          ? Timestamp.fromDate(new Date(paymentDate + 'T12:00:00')) 
+          : serverTimestamp();
 
         // Update sale
         transaction.update(saleRef, {
@@ -183,9 +204,9 @@ function Hutang() {
         // Add payment record
         const paymentsRef = collection(db, 'sales', selectedSale.id, 'payments');
         transaction.set(doc(paymentsRef), {
-          amount: amount,
+          amount: centsToAmount(amountCents),
           paymentMethod: paymentMethod,
-          createdAt: serverTimestamp(),
+          createdAt: paymentTimestamp,
           createdBy: user.uid
         });
 
@@ -194,9 +215,9 @@ function Hutang() {
         transaction.set(doc(topPaymentsRef), {
           saleId: selectedSale.id,
           customerName: selectedSale.customerName,
-          amount: amount,
+          amount: centsToAmount(amountCents),
           paymentMethod: paymentMethod,
-          createdAt: serverTimestamp(),
+          createdAt: paymentTimestamp,
           createdBy: user.uid
         });
       });
@@ -458,7 +479,8 @@ function Hutang() {
             {filteredSales.map(sale => {
               const saleDate = sale.createdAt?.toDate();
               const daysSince = saleDate ? Math.floor((new Date() - saleDate) / (1000 * 60 * 60 * 24)) : 0;
-              const isOverdue = daysSince > 30 && sale.remaining > 0;
+              // FIXED: Only show as overdue if remaining >= 0.01 (fix floating point precision)
+              const isOverdue = daysSince > 30 && (sale.remaining || 0) >= 0.01;
               
               return (
                 <div key={sale.id} className={`credit-sale-card ${isOverdue ? 'overdue' : ''}`}>
@@ -493,6 +515,8 @@ function Hutang() {
                       <button
                         onClick={() => {
                           setSelectedSale(sale);
+                          // default payment date to today
+                          setPaymentDate(new Date().toISOString().slice(0,10));
                           setShowPaymentModal(true);
                         }}
                         className="btn-record-payment"
@@ -596,6 +620,16 @@ function Hutang() {
                   placeholder="Enter payment amount"
                   required
                 />
+              </div>
+              
+              <div className="form-group">
+                <label>Payment Date:</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+                <small className="form-help">Set the actual repayment date (defaults to today)</small>
               </div>
               
               <div className="form-group">

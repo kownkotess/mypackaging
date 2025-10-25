@@ -221,6 +221,8 @@ export const useDashboardAlerts = () => {
     
     const overduePayments = creditSales.filter(sale => {
       if (!sale.createdAt || sale.status === 'Paid') return false;
+      // Fix floating point precision: treat anything < 0.01 as zero
+      if ((sale.remaining || 0) < 0.01) return false;
       
       const daysDiff = Math.floor((now - sale.createdAt) / (1000 * 60 * 60 * 24));
       return daysDiff > overdueThreshold;

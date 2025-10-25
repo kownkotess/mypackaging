@@ -47,6 +47,17 @@ import * as XLSX from 'xlsx';
 import { downloadPDF } from '../utils/pdfDownload';
 import { subscribeExtraCash } from '../lib/firestore';
 
+// Custom tick component for sales count axis to prevent RM formatting
+const SalesCountTick = ({ x, y, payload }) => {
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={4} textAnchor="start" fill="#666">
+        {Math.round(payload.value)}
+      </text>
+    </g>
+  );
+};
+
 const Reports = () => {
   const { showSuccess, showError, showConfirm } = useAlert();
   const { user } = useAuth();
@@ -337,7 +348,10 @@ const Reports = () => {
       }
     });
 
-    setSeasonalTrends(Object.values(monthlyData).sort((a, b) => new Date(a.month) - new Date(b.month)));
+    setSeasonalTrends(Object.values(monthlyData).sort((a, b) => new Date(a.month) - new Date(b.month)).map(item => ({
+      ...item,
+      salesCount: item.sales // Create a separate field to avoid any auto-formatting
+    })));
 
     // ROI Analysis
     const productROI = products.map(product => {
@@ -546,16 +560,26 @@ const Reports = () => {
       
       console.log('Processing sales data...', sales.length, 'sales');
       // Sales Data
-      const salesData = sales.map(sale => ({
-        Date: sale.createdAt ? format(
-          sale.createdAt.toDate ? sale.createdAt.toDate() : sale.createdAt, 
-          'yyyy-MM-dd HH:mm'
-        ) : '',
-        Customer: sale.customerName || 'Walk-in',
-        Total: `RM ${sale.total || 0}`,
-        Payment: sale.paymentType || 'cash',
-        Status: sale.status === 'Hutang' ? 'Hutang' : (sale.paymentType === 'cash' ? 'Cash' : (sale.paymentType === 'online' ? 'Online' : 'Paid'))
-      }));
+      const salesData = sales.map(sale => {
+        // Display payment type with remaining for hutang combinations
+        let statusDisplay = sale.paymentType || 'cash';
+        if (sale.status === 'Hutang' && sale.remaining > 0) {
+          statusDisplay += ` (Remaining: RM ${(sale.remaining || 0).toFixed(2)})`;
+        } else if (sale.status === 'Hutang' && (sale.remaining || 0) <= 0) {
+          statusDisplay += ' (Paid)';
+        }
+        
+        return {
+          Date: sale.createdAt ? format(
+            sale.createdAt.toDate ? sale.createdAt.toDate() : sale.createdAt, 
+            'yyyy-MM-dd HH:mm'
+          ) : '',
+          Customer: sale.customerName || 'Walk-in',
+          Total: `RM ${sale.total || 0}`,
+          Payment: statusDisplay,
+          Status: sale.status || 'Paid'
+        };
+      });
       
       const salesWS = XLSX.utils.json_to_sheet(salesData);
       XLSX.utils.book_append_sheet(wb, salesWS, 'Sales');
@@ -703,46 +727,13 @@ const Reports = () => {
   const getPaymentMethodTotals = () => {
     const filteredSales = getFilteredSalesData();
     
-    // Get date range using the same logic as getFilteredSalesData
-    const now = new Date();
-    let startDate, endDate;
-
-    if (customDateRange.filterType === 'custom') {
-      if (customDateRange.startDate && customDateRange.endDate) {
-        startDate = new Date(customDateRange.startDate);
-        endDate = new Date(customDateRange.endDate);
-        endDate.setHours(23, 59, 59, 999);
-      } else {
-        startDate = new Date(0);
-        endDate = now;
-      }
-    } else {
-      endDate = now;
-      switch (dateRange) {
-        case 'week':
-          startDate = subDays(now, 7);
-          break;
-        case 'month':
-          startDate = subDays(now, 30);
-          break;
-        case 'quarter':
-          startDate = subDays(now, 90);
-          break;
-        case 'year':
-          startDate = subDays(now, 365);
-          break;
-        case 'all':
-        default:
-          startDate = new Date(0);
-          break;
-      }
-    }
+    // Get all sale IDs in the filtered date range
+    const filteredSaleIds = new Set(filteredSales.map(sale => sale.id));
     
-    // Filter payments within the same date range
+    // Get ALL payments for these sales (regardless of payment date)
+    // This ensures we see repayments made outside the date range for sales within the range
     const filteredPayments = payments.filter(payment => {
-      const paymentDate = payment.createdAt;
-      const isInRange = paymentDate >= startDate && paymentDate <= endDate;
-      return isInRange;
+      return payment.saleId && filteredSaleIds.has(payment.saleId);
     });
 
     const totals = {
@@ -763,13 +754,15 @@ const Reports = () => {
       const amount = parseFloat(sale.total || 0);
       totals.overall += amount;
 
-      // Categorize by payment status
+      // Add cash and online totals from the sale (supports multi-payment)
+      totals.cash += parseFloat(sale.cashTotal || 0);
+      totals.online += parseFloat(sale.onlineTotal || 0);
+
+      // Track hutang outstanding
       if (sale.status === 'Hutang') {
         totals.hutangOriginal += amount;
-      } else if (sale.paymentType === 'online') {
-        totals.online += amount;
-      } else if (sale.paymentType === 'cash') {
-        totals.cash += amount;
+        // Use actual remaining from the sale record (accounts for all repayments, even outside date range)
+        totals.hutangOutstanding += parseFloat(sale.remaining || 0);
       }
     });
 
@@ -794,8 +787,8 @@ const Reports = () => {
 
     });
 
-    // Calculate outstanding hutang (original hutang minus repayments)
-    totals.hutangOutstanding = totals.hutangOriginal - totals.repayments.total;
+    // Note: hutangOutstanding is already calculated from actual sale.remaining values above
+    // This accounts for all repayments regardless of when they were made
 
     return totals;
   };
@@ -1510,11 +1503,18 @@ const Reports = () => {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="month" />
                           <YAxis yAxisId="left" tickFormatter={(value) => `RM ${value}`} />
-                          <YAxis yAxisId="right" orientation="right" />
-                          <Tooltip formatter={(value, name) => [name === 'sales' ? `${value} sales` : formatCurrency(value), name]} />
+                          <YAxis 
+                            yAxisId="right" 
+                            orientation="right" 
+                            allowDecimals={false}
+                            scale="linear"
+                            tick={<SalesCountTick />}
+                            label={{ value: 'Sales Count', angle: 90, position: 'insideRight' }} 
+                          />
+                          <Tooltip formatter={(value, name) => [name === 'salesCount' ? `${value} sales` : formatCurrency(value), name]} />
                           <Legend />
                           <Bar yAxisId="left" dataKey="revenue" fill="#82ca9d" name="Revenue" />
-                          <Line yAxisId="right" type="monotone" dataKey="sales" stroke="#8884d8" name="Sales Count" />
+                          <Line yAxisId="right" type="monotone" dataKey="salesCount" stroke="#8884d8" name="Sales Count" />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>,
@@ -1530,11 +1530,18 @@ const Reports = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis yAxisId="left" tickFormatter={(value) => `RM ${value}`} />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip formatter={(value, name) => [name === 'sales' ? `${value} sales` : formatCurrency(value), name]} />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right" 
+                    allowDecimals={false}
+                    scale="linear"
+                    tick={<SalesCountTick />}
+                    label={{ value: 'Sales Count', angle: 90, position: 'insideRight' }} 
+                  />
+                  <Tooltip formatter={(value, name) => [name === 'salesCount' ? `${value} sales` : formatCurrency(value), name]} />
                   <Legend />
                   <Bar yAxisId="left" dataKey="revenue" fill="#82ca9d" name="Revenue" />
-                  <Line yAxisId="right" type="monotone" dataKey="sales" stroke="#8884d8" name="Sales Count" />
+                  <Line yAxisId="right" type="monotone" dataKey="salesCount" stroke="#8884d8" name="Sales Count" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -2099,7 +2106,7 @@ const Reports = () => {
                             <td>
                               <div className="customer-info">
                                 <strong>{sale.customerName}</strong>
-                                {sale.status === 'Hutang' && (
+                                {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
                                   <span className="credit-badge">Credit</span>
                                 )}
                               </div>
@@ -2129,14 +2136,16 @@ const Reports = () => {
                               </div>
                             </td>
                             <td>
-                              <span className={`status-badge ${sale.status.toLowerCase()}`}>
-                                {sale.status === 'Hutang'
-                                  ? 'Hutang'
-                                  : sale.paymentType === 'cash'
-                                    ? 'Cash'
-                                    : sale.paymentType === 'online'
-                                      ? 'Online'
-                                      : sale.status}
+                              <span className={`status-badge ${
+                                sale.status === 'Hutang' && (sale.remaining || 0) > 0 
+                                  ? 'hutang' 
+                                  : sale.status === 'Hutang' && (sale.remaining || 0) <= 0
+                                  ? 'paid'
+                                  : sale.status.toLowerCase()
+                              }`}>
+                                {sale.paymentType || 'Cash'}
+                                {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && ' (Outstanding)'}
+                                {sale.status === 'Hutang' && (sale.remaining || 0) <= 0 && ' (Paid)'}
                               </span>
                             </td>
                             <td>

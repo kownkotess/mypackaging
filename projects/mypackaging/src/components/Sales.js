@@ -10,6 +10,7 @@ import BarcodeScanner from './BarcodeScanner';
 import { logActivity } from '../lib/auditLog';
 import { parseProductQRCode, isProductQRCode } from '../utils/qrCodeGenerator';
 import './Sales.css';
+import { centsToAmount } from '../lib/money';
 
 const Sales = () => {
   const { user } = useAuth();
@@ -34,6 +35,11 @@ const Sales = () => {
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [allCustomerNames, setAllCustomerNames] = useState([]);
+  
+  // Multi-payment support
+  const [enableMultiPayment, setEnableMultiPayment] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState({ cash: false, online: false, hutang: false });
+  const [paymentAmounts, setPaymentAmounts] = useState({ cash: '', online: '', hutang: '' });
 
   useEffect(() => {
     loadProducts();
@@ -256,19 +262,33 @@ const Sales = () => {
   };
 
   const calculateSubtotal = () => {
-    return selectedProducts.reduce((sum, item) => sum + item.subtotal, 0);
+    // Use cents to sum subtotals to avoid floating point errors
+    const subtotalCents = selectedProducts.reduce((sum, item) => {
+      return sum + Math.round((Number(item.subtotal) || 0) * 100);
+    }, 0);
+    return centsToAmount(subtotalCents);
   };
 
   const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const deductionAmount = Number(deduction) || 0;
-    return subtotal - deductionAmount;
+    const subtotalCents = Math.round(calculateSubtotal() * 100);
+    const deductionCents = Math.round((Number(deduction) || 0) * 100);
+    return centsToAmount(subtotalCents - deductionCents);
   };
 
   const calculateRemaining = () => {
-    const total = calculateTotal();
-    const paid = Number(paidAmount) || 0;
-    return Math.max(0, total - paid);
+    const totalCents = Math.round(calculateTotal() * 100);
+    let paidCents = 0;
+
+    if (enableMultiPayment) {
+      paidCents = Math.round((Number(paymentAmounts.cash) || 0) * 100) +
+                   Math.round((Number(paymentAmounts.online) || 0) * 100) +
+                   Math.round((Number(paymentAmounts.hutang) || 0) * 100);
+    } else {
+      paidCents = Math.round((Number(paidAmount) || 0) * 100);
+    }
+
+    const remainingCents = Math.max(0, totalCents - paidCents);
+    return centsToAmount(remainingCents);
   };
 
   // Effect to automatically set payment method to hutang when needed
@@ -314,7 +334,6 @@ const Sales = () => {
     }
 
     const total = calculateTotal();
-    const paid = Number(paidAmount) || 0;
     const remaining = calculateRemaining();
 
     // Customer name validation for credit sales
@@ -323,9 +342,15 @@ const Sales = () => {
       return;
     }
 
-    // Ensure payment method is hutang for credit sales
-    if (remaining > 0 && paymentMethod !== 'hutang') {
+    // For single payment mode, ensure payment method is hutang for credit sales
+    if (!enableMultiPayment && remaining > 0 && paymentMethod !== 'hutang') {
       setError('Payment method must be "Hutang (Credit)" when paid amount is less than total.');
+      return;
+    }
+    
+    // For multi-payment mode, ensure hutang is selected if there's remaining
+    if (enableMultiPayment && remaining > 0 && !paymentMethods.hutang) {
+      setError('Please select "Hutang (Credit)" payment method when paid amount is less than total.');
       return;
     }
 
@@ -362,14 +387,59 @@ const Sales = () => {
 
     try {
       const subtotal = calculateSubtotal();
+      
+      // Calculate payment breakdown
+      let paid, cashTotal, onlineTotal, hutangTotal, paymentTypeLabel;
+      
+      if (enableMultiPayment) {
+        // Multi-payment mode (use cents for accuracy)
+        const cashTotalCents = Math.round((Number(paymentAmounts.cash) || 0) * 100);
+        const onlineTotalCents = Math.round((Number(paymentAmounts.online) || 0) * 100);
+        const hutangTotalCents = Math.round((Number(paymentAmounts.hutang) || 0) * 100);
+        
+        // paidAmount = only cash + online (actual money received now)
+        // hutangTotal = credit taken (NOT counted as paid)
+        const paidCents = cashTotalCents + onlineTotalCents;
+
+        cashTotal = centsToAmount(cashTotalCents);
+        onlineTotal = centsToAmount(onlineTotalCents);
+        hutangTotal = centsToAmount(hutangTotalCents);
+        paid = centsToAmount(paidCents);
+
+        // Build payment type label based on which payment method checkboxes were SELECTED
+        // This shows the payment methods used in the sale, even if some amounts are 0
+        const selectedMethods = [];
+        if (paymentMethods.cash) selectedMethods.push('cash');
+        if (paymentMethods.online) selectedMethods.push('online');
+        if (paymentMethods.hutang) selectedMethods.push('hutang');
+        paymentTypeLabel = selectedMethods.join(' + ') || 'cash'; // Default to 'cash' if nothing selected
+      } else {
+        // Single payment mode
+        const paidCents = Math.round((Number(paidAmount) || 0) * 100);
+        paid = centsToAmount(paidCents);
+        
+        // If payment method is 'hutang', paid should be 0 and hutang tracks the credit
+        if (paymentMethod === 'hutang') {
+          cashTotal = 0;
+          onlineTotal = 0;
+          hutangTotal = 0; // Don't pre-set hutang, let remaining track what's owed
+          paymentTypeLabel = 'hutang';
+        } else {
+          paymentTypeLabel = paymentMethod;
+          cashTotal = paymentMethod === 'cash' ? paid : 0;
+          onlineTotal = paymentMethod === 'online' ? paid : 0;
+          hutangTotal = 0;
+        }
+      }
 
       const saleData = {
         subtotal,
         roundOff: -(Number(deduction) || 0), // Store as negative for deduction
         total,
-        paymentType: paymentMethod,
-        cashTotal: paymentMethod === 'cash' ? paid : 0,
-        onlineTotal: paymentMethod === 'online' ? paid : 0,
+        paymentType: paymentTypeLabel,
+        cashTotal,
+        onlineTotal,
+        hutangTotal: hutangTotal || 0,
         paidAmount: paid,
         remaining,
         status: remaining > 0 ? 'Hutang' : 'Paid',
@@ -436,6 +506,9 @@ const Sales = () => {
   setSaleDate(''); // Reset sale date
   setSaleTime(''); // Reset sale time
       setPaymentMethod('cash');
+      setEnableMultiPayment(false);
+      setPaymentMethods({ cash: false, online: false, hutang: false });
+      setPaymentAmounts({ cash: '', online: '', hutang: '' });
       
       // Reload products to get updated stock
       loadProducts();
@@ -718,43 +791,150 @@ const Sales = () => {
 
                   <div className="form-group">
                     <label>Payment Method</label>
-                    <div className="payment-method-buttons">
-                      <button
-                        type="button"
-                        className={`payment-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
-                        onClick={() => setPaymentMethod('cash')}
-                      >
-                        💵 Cash
-                      </button>
-                      <button
-                        type="button"
-                        className={`payment-btn ${paymentMethod === 'online' ? 'active' : ''}`}
-                        onClick={() => setPaymentMethod('online')}
-                      >
-                        💳 Online Transfer
-                      </button>
-                      <button
-                        type="button"
-                        className={`payment-btn ${paymentMethod === 'hutang' ? 'active' : ''}`}
-                        onClick={() => setPaymentMethod('hutang')}
-                      >
-                        📋 Hutang (Credit)
-                      </button>
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.9em', fontWeight: 'normal', cursor: 'pointer', gap: '6px' }}>
+                        <input 
+                          type="checkbox"
+                          className="multi-payment-checkbox"
+                          checked={enableMultiPayment}
+                          onChange={(e) => {
+                            setEnableMultiPayment(e.target.checked);
+                            if (!e.target.checked) {
+                              // Reset to single payment
+                              setPaymentMethods({ cash: false, online: false, hutang: false });
+                              setPaymentAmounts({ cash: '', online: '', hutang: '' });
+                              setPaymentMethod('cash');
+                            }
+                          }}
+                        />
+                        <span style={{ whiteSpace: 'nowrap' }}>Enable multiple payment methods</span>
+                      </label>
                     </div>
+                    
+                    {!enableMultiPayment ? (
+                      // Single payment method (original)
+                      <div className="payment-method-buttons">
+                        <button
+                          type="button"
+                          className={`payment-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+                          onClick={() => setPaymentMethod('cash')}
+                        >
+                          💵 Cash
+                        </button>
+                        <button
+                          type="button"
+                          className={`payment-btn ${paymentMethod === 'online' ? 'active' : ''}`}
+                          onClick={() => setPaymentMethod('online')}
+                        >
+                          💳 Online Transfer
+                        </button>
+                        <button
+                          type="button"
+                          className={`payment-btn ${paymentMethod === 'hutang' ? 'active' : ''}`}
+                          onClick={() => setPaymentMethod('hutang')}
+                        >
+                          📋 Hutang (Credit)
+                        </button>
+                      </div>
+                    ) : (
+                      // Multi-payment method
+                      <div className="multi-payment-container">
+                        <div className="multi-payment-row">
+                          <button
+                            type="button"
+                            className={`payment-btn ${paymentMethods.cash ? 'active' : ''}`}
+                            onClick={() => setPaymentMethods(prev => ({ ...prev, cash: !prev.cash }))}
+                            style={{ flex: 1 }}
+                          >
+                            💵 Cash
+                          </button>
+                          <input
+                            type="number"
+                            value={paymentAmounts.cash}
+                            onChange={(e) => setPaymentAmounts(prev => ({ ...prev, cash: e.target.value }))}
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            disabled={!paymentMethods.cash}
+                            style={{ 
+                              flex: 1, 
+                              marginLeft: '10px',
+                              backgroundColor: paymentMethods.cash ? 'white' : '#e0e0e0',
+                              cursor: paymentMethods.cash ? 'text' : 'not-allowed'
+                            }}
+                          />
+                        </div>
+                        <div className="multi-payment-row">
+                          <button
+                            type="button"
+                            className={`payment-btn ${paymentMethods.online ? 'active' : ''}`}
+                            onClick={() => setPaymentMethods(prev => ({ ...prev, online: !prev.online }))}
+                            style={{ flex: 1 }}
+                          >
+                            💳 Online Transfer
+                          </button>
+                          <input
+                            type="number"
+                            value={paymentAmounts.online}
+                            onChange={(e) => setPaymentAmounts(prev => ({ ...prev, online: e.target.value }))}
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            disabled={!paymentMethods.online}
+                            style={{ 
+                              flex: 1, 
+                              marginLeft: '10px',
+                              backgroundColor: paymentMethods.online ? 'white' : '#e0e0e0',
+                              cursor: paymentMethods.online ? 'text' : 'not-allowed'
+                            }}
+                          />
+                        </div>
+                        <div className="multi-payment-row">
+                          <button
+                            type="button"
+                            className={`payment-btn ${paymentMethods.hutang ? 'active' : ''}`}
+                            onClick={() => setPaymentMethods(prev => ({ ...prev, hutang: !prev.hutang }))}
+                            style={{ flex: 1 }}
+                          >
+                            📋 Hutang (Credit)
+                          </button>
+                          <input
+                            type="number"
+                            value={paymentAmounts.hutang}
+                            onChange={(e) => setPaymentAmounts(prev => ({ ...prev, hutang: e.target.value }))}
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            disabled={!paymentMethods.hutang}
+                            style={{ 
+                              flex: 1, 
+                              marginLeft: '10px',
+                              backgroundColor: paymentMethods.hutang ? 'white' : '#e0e0e0',
+                              cursor: paymentMethods.hutang ? 'text' : 'not-allowed'
+                            }}
+                          />
+                        </div>
+                        <small className="form-help" style={{ marginTop: '10px', display: 'block' }}>
+                          Select payment methods and enter amounts for each
+                        </small>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="form-group">
-                    <label>Amount Paid</label>
-                    <input
-                      type="number"
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
+                  {!enableMultiPayment && (
+                    <div className="form-group">
+                      <label>Amount Paid</label>
+                      <input
+                        type="number"
+                        value={paidAmount}
+                        onChange={(e) => setPaidAmount(e.target.value)}
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                  )}
 
                   <div className="summary-row">
                     <span>Remaining:</span>

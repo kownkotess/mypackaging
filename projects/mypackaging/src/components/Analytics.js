@@ -35,6 +35,7 @@ const Analytics = () => {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   // Analytics state
   const [salesTrends, setSalesTrends] = useState([]);
@@ -92,6 +93,17 @@ const Analytics = () => {
         createdAt: doc.data().createdAt?.toDate()
       }));
       setPurchases(purchasesData);
+    }));
+
+    // Payments data (for repayments)
+    const paymentsQuery = query(collection(db, 'payments'));
+    unsubscribes.push(onSnapshot(paymentsQuery, (snapshot) => {
+      const paymentsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate()
+      }));
+      setPayments(paymentsData);
     }));
 
     setLoading(false);
@@ -198,15 +210,30 @@ const Analytics = () => {
   const calculatePaymentBreakdown = () => {
     const breakdown = { cash: 0, online: 0, hutang: 0 };
     
+    // Use cashTotal, onlineTotal fields to support multi-payment sales
     sales.forEach(sale => {
-      const paymentType = sale.paymentType?.toLowerCase() || 'cash';
-      breakdown[paymentType] = (breakdown[paymentType] || 0) + (sale.total || 0);
+      breakdown.cash += parseFloat(sale.cashTotal || 0);
+      breakdown.online += parseFloat(sale.onlineTotal || 0);
+      // For hutang, show the remaining balance (what's still owed)
+      if (sale.status === 'Hutang' && (sale.remaining || 0) > 0) {
+        breakdown.hutang += parseFloat(sale.remaining || 0);
+      }
+    });
+
+    // Add repayments (money received via cash/online in Hutang page)
+    payments.forEach(payment => {
+      const amount = parseFloat(payment.amount || 0);
+      if (payment.paymentMethod === 'cash') {
+        breakdown.cash += amount;
+      } else if (payment.paymentMethod === 'online') {
+        breakdown.online += amount;
+      }
     });
 
     const chartData = [
       { name: 'Cash', value: breakdown.cash, color: '#8884d8' },
       { name: 'Online', value: breakdown.online, color: '#82ca9d' },
-      { name: 'Hutang', value: breakdown.hutang, color: '#ffc658' }
+      { name: 'Hutang Outstanding', value: breakdown.hutang, color: '#ffc658' }
     ].filter(item => item.value > 0);
 
     setPaymentBreakdown(chartData);
