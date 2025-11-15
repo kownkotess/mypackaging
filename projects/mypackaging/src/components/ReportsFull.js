@@ -723,17 +723,137 @@ const Reports = () => {
     });
   };
 
+  // Get combined sales and extra cash entries for display
+  const getCombinedSalesData = () => {
+    const filteredSales = getFilteredSalesData();
+    
+    // Get date range for filtering extra cash
+    const now = new Date();
+    let startDate = new Date();
+    let endDate = new Date();
+
+    if (customDateRange.filterType === 'custom') {
+      if (customDateRange.singleDate) {
+        const selectedDate = new Date(customDateRange.singleDate);
+        startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
+        endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59);
+      } else if (customDateRange.startDate && customDateRange.endDate) {
+        startDate = new Date(customDateRange.startDate);
+        endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date(0);
+        endDate = now;
+      }
+    } else {
+      endDate = now;
+      switch (dateRange) {
+        case 'week':
+          startDate = subDays(now, 7);
+          break;
+        case 'month':
+          startDate = subDays(now, 30);
+          break;
+        case 'quarter':
+          startDate = subDays(now, 90);
+          break;
+        case 'year':
+          startDate = subDays(now, 365);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0);
+          break;
+      }
+    }
+
+    // Filter extra cash entries by their recorded date
+    const filteredExtraCash = extraCashEntries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= startDate && entryDate <= endDate;
+    });
+
+    // Convert extra cash entries to virtual sale records
+    const extraCashAsSales = filteredExtraCash.map(entry => {
+      // Set extra cash time to 18:00 (6 PM) instead of midnight
+      const extraCashDate = new Date(entry.date);
+      extraCashDate.setHours(18, 0, 0, 0);
+      
+      return {
+        id: `extra-cash-${entry.id}`,
+        isExtraCash: true,
+        createdAt: extraCashDate,
+        customerName: 'Extra Cash',
+        total: parseFloat(entry.amount || 0),
+        items: [{ name: entry.reason || 'Extra Cash', quantity: 1, unitPrice: parseFloat(entry.amount || 0) }],
+        paymentType: 'cash',
+        status: 'Cash',
+        description: entry.reason
+      };
+    });
+
+    // Combine and sort by date (most recent first)
+    const combined = [...filteredSales, ...extraCashAsSales].sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+      return dateB - dateA;
+    });
+
+    return combined;
+  };
+
   // Calculate payment method totals for filtered sales including repayments
   const getPaymentMethodTotals = () => {
     const filteredSales = getFilteredSalesData();
     
-    // Get all sale IDs in the filtered date range
-    const filteredSaleIds = new Set(filteredSales.map(sale => sale.id));
+    // Get date range for filtering payments by payment date
+    const now = new Date();
+    let startDate, endDate;
+
+    if (customDateRange.filterType === 'custom') {
+      if (customDateRange.singleDate) {
+        // Single date filter
+        const selectedDate = new Date(customDateRange.singleDate);
+        startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
+        endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59);
+      } else if (customDateRange.startDate && customDateRange.endDate) {
+        // Date range filter
+        startDate = new Date(customDateRange.startDate);
+        endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // Fallback to all time if custom dates are incomplete
+        startDate = new Date(0);
+        endDate = now;
+      }
+    } else {
+      endDate = now;
+      switch (dateRange) {
+        case 'week':
+          startDate = subDays(now, 7);
+          break;
+        case 'month':
+          startDate = subDays(now, 30);
+          break;
+        case 'quarter':
+          startDate = subDays(now, 90);
+          break;
+        case 'year':
+          startDate = subDays(now, 365);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0);
+          break;
+      }
+    }
     
-    // Get ALL payments for these sales (regardless of payment date)
-    // This ensures we see repayments made outside the date range for sales within the range
+    // Filter payments by their payment date (when they were actually paid)
     const filteredPayments = payments.filter(payment => {
-      return payment.saleId && filteredSaleIds.has(payment.saleId);
+      if (!payment.saleId || !payment.createdAt) return false;
+      
+      const paymentDate = payment.createdAt.toDate ? payment.createdAt.toDate() : new Date(payment.createdAt);
+      return paymentDate >= startDate && paymentDate <= endDate;
     });
 
     const totals = {
@@ -767,14 +887,13 @@ const Reports = () => {
     });
 
     // Process repayments (hutang payments) - these are separate from original sales
-    // IMPORTANT: Only count payments that belong to existing sales (not deleted sales)
-    const existingSaleIds = new Set(filteredSales.map(sale => sale.id));
+    // Count ALL payments that were made within the filtered date range
+    // But exclude payments for deleted sales (check against all sales, not just filtered ones)
+    const allSaleIds = new Set(sales.map(sale => sale.id));
     
     filteredPayments.forEach(payment => {
-      // Skip payments for deleted sales
-      if (!payment.saleId || !existingSaleIds.has(payment.saleId)) {
-        return;
-      }
+      // Skip if no saleId or sale has been deleted
+      if (!payment.saleId || !allSaleIds.has(payment.saleId)) return;
       
       const amount = parseFloat(payment.amount || 0);
       totals.repayments.total += amount;
@@ -784,7 +903,6 @@ const Reports = () => {
       } else if (payment.paymentMethod === 'online') {
         totals.repayments.online += amount;
       }
-
     });
 
     // Note: hutangOutstanding is already calculated from actual sale.remaining values above
@@ -793,63 +911,16 @@ const Reports = () => {
     return totals;
   };
 
-  // Calculate extra cash for the filtered date range
-  const getExtraCashTotal = () => {
-    // Get date range using the same logic as getFilteredSalesData
-    const now = new Date();
-    let startDate, endDate;
-
-    if (customDateRange.filterType === 'custom') {
-      if (customDateRange.startDate && customDateRange.endDate) {
-        startDate = new Date(customDateRange.startDate);
-        endDate = new Date(customDateRange.endDate);
-        endDate.setHours(23, 59, 59, 999);
-      } else {
-        startDate = new Date(0);
-        endDate = now;
-      }
-    } else {
-      endDate = now;
-      switch (dateRange) {
-        case 'week':
-          startDate = subDays(now, 7);
-          break;
-        case 'month':
-          startDate = subDays(now, 30);
-          break;
-        case 'quarter':
-          startDate = subDays(now, 90);
-          break;
-        case 'year':
-          startDate = subDays(now, 365);
-          break;
-        case 'all':
-        default:
-          startDate = new Date(0);
-          break;
-      }
-    }
-
-    // Filter extra cash entries by date
-    const filteredExtraCash = extraCashEntries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate >= startDate && entryDate <= endDate;
-    });
-
-    // Sum up the amounts
-    return filteredExtraCash.reduce((total, entry) => total + (parseFloat(entry.amount) || 0), 0);
-  };
-
-  // Get paginated sales data
+  // Get paginated sales data (including extra cash entries)
   const getPaginatedSalesData = () => {
-    const filteredSales = getFilteredSalesData();
+    const combinedData = getCombinedSalesData();
     const startIndex = (salesCurrentPage - 1) * salesItemsPerPage;
     const endIndex = startIndex + salesItemsPerPage;
-    return filteredSales.slice(startIndex, endIndex);
+    return combinedData.slice(startIndex, endIndex);
   };
 
   // Sales pagination calculations
-  const totalSalesPages = Math.ceil(getFilteredSalesData().length / salesItemsPerPage);
+  const totalSalesPages = Math.ceil(getCombinedSalesData().length / salesItemsPerPage);
 
   // Reset sales pagination when date filter changes
   useEffect(() => {
@@ -2031,9 +2102,6 @@ const Reports = () => {
                       {getPaymentMethodTotals().repayments.cash > 0 && (
                         <small className="repayment-note">Repayments: {formatCurrency(getPaymentMethodTotals().repayments.cash)}</small>
                       )}
-                      {getExtraCashTotal() > 0 && (
-                        <small className="repayment-note">Extra Cash: +{formatCurrency(getExtraCashTotal())}</small>
-                      )}
                     </div>
                   </div>
                   <div className="total-card online">
@@ -2075,6 +2143,9 @@ const Reports = () => {
                   {getPaymentMethodTotals().repayments.total > 0 && (
                     <small className="repayments-info">📋 Hutang shows outstanding balance after repayments</small>
                   )}
+                  {getCombinedSalesData().some(item => item.isExtraCash) && (
+                    <small className="extra-cash-info">💵 Extra cash entries are included in the list below</small>
+                  )}
                 </div>
               </div>
 
@@ -2096,7 +2167,7 @@ const Reports = () => {
                       </thead>
                       <tbody>
                         {getPaginatedSalesData().map(sale => (
-                          <tr key={sale.id}>
+                          <tr key={sale.id} className={sale.isExtraCash ? 'extra-cash-row' : ''}>
                             <td>
                               <div className="date-info">
                                 <span className="date">{formatDate(sale.createdAt)}</span>
@@ -2106,29 +2177,40 @@ const Reports = () => {
                             <td>
                               <div className="customer-info">
                                 <strong>{sale.customerName}</strong>
-                                {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
+                                {sale.isExtraCash && (
+                                  <span className="extra-cash-badge">💰 Extra Cash</span>
+                                )}
+                                {!sale.isExtraCash && sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
                                   <span className="credit-badge">Credit</span>
                                 )}
                               </div>
                             </td>
                             <td>
                               <div className="products-list">
-                                {(sale.items || []).map((item, index) => (
-                                  <div key={index} className="product-item">
-                                    <span className="product-name">{item.name || 'Unknown Product'}</span>
-                                    <span className="product-quantity">×{calculateTotalUnits(item)} units</span>
-                                    <span className="product-price">RM {(item.unitPrice || 0).toFixed(2)}</span>
+                                {sale.isExtraCash ? (
+                                  <div className="product-item">
+                                    <span className="product-name">{sale.description || 'Extra Cash'}</span>
                                   </div>
-                                ))}
-                                {(!sale.items || sale.items.length === 0) && (
-                                  <div className="no-products">No products found</div>
+                                ) : (
+                                  <>
+                                    {(sale.items || []).map((item, index) => (
+                                      <div key={index} className="product-item">
+                                        <span className="product-name">{item.name || 'Unknown Product'}</span>
+                                        <span className="product-quantity">×{calculateTotalUnits(item)} units</span>
+                                        <span className="product-price">RM {(item.unitPrice || 0).toFixed(2)}</span>
+                                      </div>
+                                    ))}
+                                    {(!sale.items || sale.items.length === 0) && (
+                                      <div className="no-products">No products found</div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </td>
                             <td>
                               <div className="amount-info">
                                 <strong className="total-amount">RM {(sale.total || 0).toFixed(2)}</strong>
-                                {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
+                                {!sale.isExtraCash && sale.status === 'Hutang' && (sale.remaining || 0) > 0 && (
                                   <span className="remaining-amount">
                                     Outstanding: RM {(sale.remaining || 0).toFixed(2)}
                                   </span>
@@ -2136,49 +2218,59 @@ const Reports = () => {
                               </div>
                             </td>
                             <td>
-                              <span className={`status-badge ${
-                                sale.status === 'Hutang' && (sale.remaining || 0) > 0 
-                                  ? 'hutang' 
-                                  : sale.status === 'Hutang' && (sale.remaining || 0) <= 0
-                                  ? 'paid'
-                                  : sale.status.toLowerCase()
-                              }`}>
-                                {sale.paymentType || 'Cash'}
-                                {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && ' (Outstanding)'}
-                                {sale.status === 'Hutang' && (sale.remaining || 0) <= 0 && ' (Paid)'}
-                              </span>
+                              {sale.isExtraCash ? (
+                                <span className="status-badge extra-cash">Extra Cash</span>
+                              ) : (
+                                <span className={`status-badge ${
+                                  sale.status === 'Hutang' && (sale.remaining || 0) > 0 
+                                    ? 'hutang' 
+                                    : sale.status === 'Hutang' && (sale.remaining || 0) <= 0
+                                    ? 'paid'
+                                    : sale.status.toLowerCase()
+                                }`}>
+                                  {sale.paymentType || 'Cash'}
+                                  {sale.status === 'Hutang' && (sale.remaining || 0) > 0 && ' (Outstanding)'}
+                                  {sale.status === 'Hutang' && (sale.remaining || 0) <= 0 && ' (Paid)'}
+                                </span>
+                              )}
                             </td>
                             <td>
-                              <div className="action-buttons">
-                                <button
-                                  onClick={() => handleGenerateReceipt(sale)}
-                                  className="btn-receipt"
-                                  title="Download PDF Receipt"
-                                >
-                                  📄 Receipt
-                                </button>
-                                <button
-                                  onClick={() => handleEmailReceipt(sale)}
-                                  className="btn-email"
-                                  title="Email Receipt"
-                                >
-                                  📧 Email
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSale(sale)}
-                                  className="btn-delete-sale"
-                                  title="Delete sale and restore stock"
-                                >
-                                  🗑️ Delete
-                                </button>
-                              </div>
+                              {sale.isExtraCash ? (
+                                <div className="action-buttons">
+                                  <span className="no-actions">-</span>
+                                </div>
+                              ) : (
+                                <div className="action-buttons">
+                                  <button
+                                    onClick={() => handleGenerateReceipt(sale)}
+                                    className="btn-receipt"
+                                    title="Download PDF Receipt"
+                                  >
+                                    📄 Receipt
+                                  </button>
+                                  <button
+                                    onClick={() => handleEmailReceipt(sale)}
+                                    className="btn-email"
+                                    title="Email Receipt"
+                                  >
+                                    📧 Email
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSale(sale)}
+                                    className="btn-delete-sale"
+                                    title="Delete sale and restore stock"
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
 
-                    {getFilteredSalesData().length === 0 && (
+                    {getCombinedSalesData().length === 0 && (
                       <div className="empty-state">
                         <p>No sales found for the selected date range.</p>
                       </div>

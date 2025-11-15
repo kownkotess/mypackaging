@@ -25,6 +25,7 @@ const Sales = () => {
   const [customerName, setCustomerName] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [deduction, setDeduction] = useState('');
+  const [adjustmentType, setAdjustmentType] = useState('none'); // 'none', 'deduction', 'roundoff'
   const [saleDate, setSaleDate] = useState(''); // Optional date for backdating
   const [saleTime, setSaleTime] = useState(''); // Optional time for backdating
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -271,8 +272,18 @@ const Sales = () => {
 
   const calculateTotal = () => {
     const subtotalCents = Math.round(calculateSubtotal() * 100);
-    const deductionCents = Math.round((Number(deduction) || 0) * 100);
-    return centsToAmount(subtotalCents - deductionCents);
+    const adjustmentCents = Math.round((Number(deduction) || 0) * 100);
+    
+    if (adjustmentType === 'deduction') {
+      // Discount: subtract from subtotal
+      return centsToAmount(subtotalCents - adjustmentCents);
+    } else if (adjustmentType === 'roundoff') {
+      // Round off: add to subtotal
+      return centsToAmount(subtotalCents + adjustmentCents);
+    }
+    
+    // No adjustment
+    return centsToAmount(subtotalCents);
   };
 
   const calculateRemaining = () => {
@@ -434,7 +445,9 @@ const Sales = () => {
 
       const saleData = {
         subtotal,
-        roundOff: -(Number(deduction) || 0), // Store as negative for deduction
+        roundOff: adjustmentType === 'roundoff' ? (Number(deduction) || 0) : 0,
+        deduction: adjustmentType === 'deduction' ? (Number(deduction) || 0) : 0,
+        adjustmentType: adjustmentType, // Store the type for reference
         total,
         paymentType: paymentTypeLabel,
         cashTotal,
@@ -503,6 +516,7 @@ const Sales = () => {
       setCustomerName('');
       setPaidAmount('');
       setDeduction('');
+      setAdjustmentType('none');
   setSaleDate(''); // Reset sale date
   setSaleTime(''); // Reset sale time
       setPaymentMethod('cash');
@@ -715,17 +729,58 @@ const Sales = () => {
                     <span>Subtotal:</span>
                     <span>RM{calculateSubtotal().toFixed(2)}</span>
                   </div>
-                  <div className="summary-row">
-                    <span>Deduction:</span>
-                    <input
-                      type="number"
-                      value={deduction}
-                      onChange={(e) => setDeduction(e.target.value)}
-                      step="0.01"
-                      placeholder="0.00"
-                      className="deduction-input"
-                    />
+                  
+                  {/* Adjustment Type Selection */}
+                  <div className="adjustment-section">
+                    <label className="input-label">Adjustment:</label>
+                    <div className="payment-options">
+                      <button
+                        type="button"
+                        className={`payment-btn ${adjustmentType === 'none' ? 'active' : ''}`}
+                        onClick={() => {
+                          setAdjustmentType('none');
+                          setDeduction('');
+                        }}
+                      >
+                        No Adjustment
+                      </button>
+                      <button
+                        type="button"
+                        className={`payment-btn ${adjustmentType === 'deduction' ? 'active' : ''}`}
+                        onClick={() => {
+                          setAdjustmentType('deduction');
+                          setDeduction('');
+                        }}
+                      >
+                        Discount
+                      </button>
+                      <button
+                        type="button"
+                        className={`payment-btn ${adjustmentType === 'roundoff' ? 'active' : ''}`}
+                        onClick={() => {
+                          setAdjustmentType('roundoff');
+                          setDeduction('');
+                        }}
+                      >
+                        Round Off
+                      </button>
+                    </div>
+                    
+                    {adjustmentType !== 'none' && (
+                      <div className="summary-row">
+                        <span>{adjustmentType === 'deduction' ? 'Discount:' : 'Round Off:'}</span>
+                        <input
+                          type="number"
+                          value={deduction}
+                          onChange={(e) => setDeduction(e.target.value)}
+                          step="0.01"
+                          placeholder="0.00"
+                          className="deduction-input"
+                        />
+                      </div>
+                    )}
                   </div>
+                  
                   <div className="summary-row total">
                     <span>Total:</span>
                     <span>RM{calculateTotal().toFixed(2)}</span>

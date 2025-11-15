@@ -712,6 +712,34 @@
   width: fit-content;
 }
 
+.extra-cash-badge {
+  background: #4caf50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.extra-cash-row {
+  background-color: #f0f9f0 !important;
+}
+
+.extra-cash-row:hover {
+  background-color: #e8f5e8 !important;
+}
+
+.status-badge.extra-cash {
+  background: #4caf50;
+  color: white;
+}
+
+.no-actions {
+  color: #999;
+  font-style: italic;
+}
+
 .products-list {
   display: flex;
   flex-direction: column;

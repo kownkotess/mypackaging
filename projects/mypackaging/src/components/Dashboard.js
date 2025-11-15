@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
 import { CanAccess } from './RoleComponents';
@@ -10,9 +10,61 @@ import SwipeableDrawer from './SwipeableDrawer';
 import offlineDataService from '../lib/offlineDataService';
 import logo from '../assets/logo.png';
 import './Dashboard.css';
+import { Capacitor } from '@capacitor/core';
 
 const Dashboard = () => {
   const { user, userRole, logout } = useAuth();
+
+  // Add pull-to-refresh functionality for mobile (works on iOS PWA and Android)
+  useEffect(() => {
+    // Check if it's a mobile device (including iOS PWA)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile || Capacitor.isNativePlatform()) {
+      let startY = 0;
+      let isPulling = false;
+      const threshold = 100;
+      
+      const handleTouchStart = (e) => {
+        if (window.scrollY === 0) {
+          startY = e.touches[0].clientY;
+          isPulling = true;
+        }
+      };
+      
+      const handleTouchMove = (e) => {
+        if (!isPulling) return;
+        
+        const currentY = e.touches[0].clientY;
+        const pullDistance = currentY - startY;
+        
+        if (pullDistance > threshold && window.scrollY === 0) {
+          // Trigger refresh
+          isPulling = false;
+          handleRefresh();
+        }
+      };
+      
+      const handleTouchEnd = () => {
+        isPulling = false;
+      };
+      
+      document.addEventListener('touchstart', handleTouchStart);
+      document.addEventListener('touchmove', handleTouchMove);
+      document.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        document.removeEventListener('touchstart', handleTouchStart);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, []);
+
+  const handleRefresh = () => {
+    // Simply reload the page to refresh all data
+    window.location.reload();
+  };
 
   const handleLogout = async () => {
     try {

@@ -448,6 +448,25 @@
   text-align: right;
 }
 
+.adjustment-section {
+  margin: 10px 0;
+}
+
+.adjustment-section .input-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.95rem;
+}
+
+.adjustment-section .payment-options {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
 .payment-section {
   margin-bottom: 25px;
 }

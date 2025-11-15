@@ -906,3 +906,176 @@
     align-items: flex-start;
   }
 }
+
+/* Repayment History Section */
+.repayment-history-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.repayment-history-section h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.repayment-filters {
+  margin-bottom: 1.5rem;
+}
+
+.repayment-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.repayment-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.repayment-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.repayment-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.repayment-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.repayment-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.repayment-table td {
+  padding: 12px 16px;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.repayment-table td small {
+  display: block;
+  color: #6c757d;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.customer-cell {
+  font-weight: 600;
+  color: #333;
+}
+
+.amount-cell {
+  font-weight: 600;
+  color: #28a745;
+}
+
+.sale-id-cell {
+  font-family: monospace;
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.payment-method-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.payment-method-badge.cash {
+  background: #d4edda;
+  color: #155724;
+}
+
+.payment-method-badge.online {
+  background: #cfe2ff;
+  color: #084298;
+}
+
+.no-repayments {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+}
+
+.no-repayments p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #dee2e6;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #495057;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Responsive Design for Repayment History */
+@media (max-width: 768px) {
+  .repayment-history-section {
+    padding: 1rem;
+  }
+  
+  .repayment-table-container {
+    overflow-x: scroll;
+  }
+  
+  .repayment-table {
+    min-width: 800px;
+  }
+  
+  .repayment-table th,
+  .repayment-table td {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+}

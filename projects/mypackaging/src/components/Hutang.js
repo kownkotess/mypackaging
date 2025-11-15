@@ -41,6 +41,12 @@ function Hutang() {
   const [newCreditLimit, setNewCreditLimit] = useState('');
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Repayment log states
+  const [allRepayments, setAllRepayments] = useState([]);
+  const [repaymentPage, setRepaymentPage] = useState(1);
+  const [repaymentSearchTerm, setRepaymentSearchTerm] = useState('');
+  const repaymentsPerPage = 10;
 
   const { user } = useAuth();
   const { showSuccess, showError } = useAlert();
@@ -78,6 +84,57 @@ function Hutang() {
       console.error('Error loading credit sales:', error);
       setError('Failed to load credit sales. Please refresh the page.');
       setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to all repayments for the history log
+  useEffect(() => {
+    const paymentsRef = collection(db, 'payments');
+    
+    const unsubscribe = onSnapshot(paymentsRef, async (snapshot) => {
+      const paymentsData = [];
+      
+      for (const paymentDoc of snapshot.docs) {
+        const payment = paymentDoc.data();
+        
+        // Get sale details for this payment
+        if (payment.saleId) {
+          try {
+            const saleSnap = await getDocs(query(collection(db, 'sales'), where('__name__', '==', payment.saleId)));
+            
+            if (!saleSnap.empty) {
+              const saleData = saleSnap.docs[0].data();
+              
+              paymentsData.push({
+                id: paymentDoc.id,
+                paymentId: paymentDoc.id,
+                saleId: payment.saleId,
+                customerName: payment.customerName || saleData.customerName,
+                amount: payment.amount || 0,
+                paymentMethod: payment.paymentMethod,
+                paymentDate: payment.createdAt,
+                saleDate: saleData.createdAt,
+                saleTotal: saleData.total || 0
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching sale details:', error);
+          }
+        }
+      }
+      
+      // Sort by payment date (most recent first)
+      paymentsData.sort((a, b) => {
+        const dateA = a.paymentDate?.toDate ? a.paymentDate.toDate() : new Date(0);
+        const dateB = b.paymentDate?.toDate ? b.paymentDate.toDate() : new Date(0);
+        return dateB - dateA;
+      });
+      
+      setAllRepayments(paymentsData);
+    }, (error) => {
+      console.error('Error loading repayment history:', error);
     });
 
     return () => unsubscribe();
@@ -585,6 +642,142 @@ function Hutang() {
             );
           })}
         </div>
+      </div>
+
+      {/* Repayment History Log */}
+      <div className="repayment-history-section">
+        <h2>Repayment History ({allRepayments.length} total repayments)</h2>
+        
+        <div className="repayment-filters">
+          <input
+            type="text"
+            placeholder="Search by customer name or sale ID..."
+            value={repaymentSearchTerm}
+            onChange={(e) => {
+              setRepaymentSearchTerm(e.target.value);
+              setRepaymentPage(1); // Reset to first page when searching
+            }}
+            className="search-input"
+          />
+        </div>
+
+        {allRepayments.length === 0 ? (
+          <div className="no-repayments">
+            <p>No repayments recorded yet.</p>
+          </div>
+        ) : (
+          <>
+            <div className="repayment-table-container">
+              <table className="repayment-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Sale Date</th>
+                    <th>Payment Date</th>
+                    <th>Amount Paid</th>
+                    <th>Payment Method</th>
+                    <th>Sale Total</th>
+                    <th>Sale ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allRepayments
+                    .filter(repayment => {
+                      if (!repaymentSearchTerm) return true;
+                      const searchLower = repaymentSearchTerm.toLowerCase();
+                      return (
+                        repayment.customerName?.toLowerCase().includes(searchLower) ||
+                        repayment.saleId?.toLowerCase().includes(searchLower)
+                      );
+                    })
+                    .slice((repaymentPage - 1) * repaymentsPerPage, repaymentPage * repaymentsPerPage)
+                    .map(repayment => {
+                      const saleDate = repayment.saleDate?.toDate ? repayment.saleDate.toDate() : null;
+                      const paymentDate = repayment.paymentDate?.toDate ? repayment.paymentDate.toDate() : null;
+                      
+                      return (
+                        <tr key={repayment.id}>
+                          <td className="customer-cell">{repayment.customerName}</td>
+                          <td>
+                            {saleDate ? (
+                              <>
+                                <div>{saleDate.toLocaleDateString()}</div>
+                                <small>{saleDate.toLocaleTimeString()}</small>
+                              </>
+                            ) : 'N/A'}
+                          </td>
+                          <td>
+                            {paymentDate ? (
+                              <>
+                                <div>{paymentDate.toLocaleDateString()}</div>
+                                <small>{paymentDate.toLocaleTimeString()}</small>
+                              </>
+                            ) : 'N/A'}
+                          </td>
+                          <td className="amount-cell">RM {(repayment.amount || 0).toFixed(2)}</td>
+                          <td>
+                            <span className={`payment-method-badge ${repayment.paymentMethod}`}>
+                              {repayment.paymentMethod === 'cash' ? '💵 Cash' : '💳 Online'}
+                            </span>
+                          </td>
+                          <td className="amount-cell">RM {(repayment.saleTotal || 0).toFixed(2)}</td>
+                          <td className="sale-id-cell">#{repayment.saleId?.substring(0, 8)}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {allRepayments.filter(repayment => {
+              if (!repaymentSearchTerm) return true;
+              const searchLower = repaymentSearchTerm.toLowerCase();
+              return (
+                repayment.customerName?.toLowerCase().includes(searchLower) ||
+                repayment.saleId?.toLowerCase().includes(searchLower)
+              );
+            }).length > repaymentsPerPage && (
+              <div className="pagination">
+                <button
+                  onClick={() => setRepaymentPage(prev => Math.max(1, prev - 1))}
+                  disabled={repaymentPage === 1}
+                  className="pagination-btn"
+                >
+                  ← Previous
+                </button>
+                <span className="pagination-info">
+                  Page {repaymentPage} of {Math.ceil(
+                    allRepayments.filter(repayment => {
+                      if (!repaymentSearchTerm) return true;
+                      const searchLower = repaymentSearchTerm.toLowerCase();
+                      return (
+                        repayment.customerName?.toLowerCase().includes(searchLower) ||
+                        repayment.saleId?.toLowerCase().includes(searchLower)
+                      );
+                    }).length / repaymentsPerPage
+                  )}
+                </span>
+                <button
+                  onClick={() => setRepaymentPage(prev => prev + 1)}
+                  disabled={repaymentPage >= Math.ceil(
+                    allRepayments.filter(repayment => {
+                      if (!repaymentSearchTerm) return true;
+                      const searchLower = repaymentSearchTerm.toLowerCase();
+                      return (
+                        repayment.customerName?.toLowerCase().includes(searchLower) ||
+                        repayment.saleId?.toLowerCase().includes(searchLower)
+                      );
+                    }).length / repaymentsPerPage
+                  )}
+                  className="pagination-btn"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Payment Modal */}
