@@ -1,21 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
-import { subscribeUserRequests, createAdminRequest } from '../lib/firestore';
+import { useNavigate } from 'react-router-dom';
+import { subscribeUserRequests, createAdminRequest, subscribeProducts } from '../lib/firestore';
+import { collection, query, where, orderBy as firestoreOrderBy, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { logActivity } from '../lib/auditLog';
 import './RequestChanges.css';
 
 const RequestChanges = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useAlert();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [showForm, setShowForm] = useState(false);
   
   // Form state
-  const [requestType, setRequestType] = useState('delete_sale');
-  const [saleId, setSaleId] = useState('');
+  const [requestType, setRequestType] = useState('edit_sale');
   const [description, setDescription] = useState('');
+  
+  // Changes field state
+  const [selectedDate, setSelectedDate] = useState('');
+  const [sales, setSales] = useState([]);
+  const [selectedSales, setSelectedSales] = useState([]);
+  const [supplierInput, setSupplierInput] = useState('');
+  const [suppliers, setSuppliers] = useState([]);
+  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [productFrom, setProductFrom] = useState('');
+  const [productTo, setProductTo] = useState('');
+  const [filteredProductsFrom, setFilteredProductsFrom] = useState([]);
+  const [filteredProductsTo, setFilteredProductsTo] = useState([]);
+  const [extraCashAmount, setExtraCashAmount] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -26,6 +43,134 @@ const RequestChanges = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Load products for transfer
+  useEffect(() => {
+    const unsubscribe = subscribeProducts((productsData) => {
+      setProducts(productsData);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load suppliers from purchases
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        const purchasesRef = collection(db, 'purchases');
+        const snapshot = await getDocs(purchasesRef);
+        const uniqueSuppliers = [...new Set(snapshot.docs.map(doc => doc.data().supplierName).filter(Boolean))];
+        setSuppliers(uniqueSuppliers.sort());
+      } catch (error) {
+        console.error('Error loading suppliers:', error);
+      }
+    };
+    loadSuppliers();
+  }, []);
+
+  // Filter suppliers based on input
+  useEffect(() => {
+    if (supplierInput.trim()) {
+      const filtered = suppliers.filter(s => 
+        s.toLowerCase().includes(supplierInput.toLowerCase())
+      );
+      setFilteredSuppliers(filtered);
+    } else {
+      setFilteredSuppliers([]);
+    }
+  }, [supplierInput, suppliers]);
+
+  // Filter products for "from" field
+  useEffect(() => {
+    if (productFrom.trim()) {
+      const filtered = products.filter(p => 
+        p.name.toLowerCase().includes(productFrom.toLowerCase())
+      );
+      setFilteredProductsFrom(filtered.slice(0, 5));
+    } else {
+      setFilteredProductsFrom([]);
+    }
+  }, [productFrom, products]);
+
+  // Filter products for "to" field
+  useEffect(() => {
+    if (productTo.trim()) {
+      const filtered = products.filter(p => 
+        p.name.toLowerCase().includes(productTo.toLowerCase())
+      );
+      setFilteredProductsTo(filtered.slice(0, 5));
+    } else {
+      setFilteredProductsTo([]);
+    }
+  }, [productTo, products]);
+
+  // Load sales for selected date
+  useEffect(() => {
+    if (selectedDate && (requestType === 'edit_sale' || requestType === 'delete_sale')) {
+      const loadSales = async () => {
+        try {
+          const startDate = new Date(selectedDate);
+          startDate.setHours(0, 0, 0, 0);
+          const endDate = new Date(selectedDate);
+          endDate.setHours(23, 59, 59, 999);
+
+          const salesRef = collection(db, 'sales');
+          const q = query(
+            salesRef,
+            where('timestamp', '>=', startDate),
+            where('timestamp', '<=', endDate),
+            firestoreOrderBy('timestamp', 'desc')
+          );
+          
+          const snapshot = await getDocs(q);
+          const salesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setSales(salesData);
+        } catch (error) {
+          console.error('Error loading sales:', error);
+          showError('Failed to load sales for selected date');
+        }
+      };
+      loadSales();
+    } else {
+      setSales([]);
+      setSelectedSales([]);
+    }
+  }, [selectedDate, requestType, showError]);
+
+  const getTypeLabel = (type) => {
+    const labels = {
+      delete_sale: 'Delete Sale',
+      edit_sale: 'Edit Sale',
+      stock_in: 'Stock In',
+      stock_out: 'Stock Out',
+      transfer_product: 'Transfer Product',
+      extra_cash: 'Extra Cash',
+      other: 'Other'
+    };
+    return labels[type] || type;
+  };
+
+  const handleSaleSelection = (saleId) => {
+    setSelectedSales(prev => {
+      if (prev.includes(saleId)) {
+        return prev.filter(id => id !== saleId);
+      } else {
+        return [...prev, saleId];
+      }
+    });
+  };
+
+  const resetChangesFields = () => {
+    setSelectedDate('');
+    setSales([]);
+    setSelectedSales([]);
+    setSupplierInput('');
+    setProductFrom('');
+    setProductTo('');
+    setExtraCashAmount('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,9 +183,32 @@ const RequestChanges = () => {
     setLoading(true);
 
     try {
+      // Build the changes object based on request type
+      let changes = null;
+      
+      if ((requestType === 'edit_sale' || requestType === 'delete_sale') && selectedSales.length > 0) {
+        changes = {
+          date: selectedDate,
+          saleIds: selectedSales
+        };
+      } else if ((requestType === 'stock_in' || requestType === 'stock_out') && supplierInput.trim()) {
+        changes = {
+          supplier: supplierInput.trim()
+        };
+      } else if (requestType === 'transfer_product' && productFrom.trim() && productTo.trim()) {
+        changes = {
+          fromProduct: productFrom.trim(),
+          toProduct: productTo.trim()
+        };
+      } else if (requestType === 'extra_cash' && extraCashAmount) {
+        changes = {
+          amount: parseFloat(extraCashAmount)
+        };
+      }
+
       await createAdminRequest({
         type: requestType,
-        saleId: saleId.trim() || null,
+        changes,
         description: description.trim(),
         submittedBy: user.uid,
         submittedByEmail: user.email,
@@ -52,15 +220,15 @@ const RequestChanges = () => {
         user.email,
         `Request submitted: ${requestType} - ${description.substring(0, 50)}`,
         'action',
-        { type: requestType, saleId: saleId.trim() }
+        { type: requestType, changes }
       );
 
       showSuccess('Request submitted successfully! Admin will be notified.');
       
       // Reset form
-      setRequestType('delete_sale');
-      setSaleId('');
+      setRequestType('edit_sale');
       setDescription('');
+      resetChangesFields();
       setShowForm(false);
 
     } catch (error) {
@@ -79,15 +247,6 @@ const RequestChanges = () => {
     };
     const badge = badges[status] || badges.pending;
     return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
-  };
-
-  const getTypeLabel = (type) => {
-    const labels = {
-      delete_sale: 'Delete Sale',
-      edit_sale: 'Edit Sale',
-      other: 'Other Issue'
-    };
-    return labels[type] || type;
   };
 
   const formatDate = (timestamp) => {
@@ -135,25 +294,152 @@ const RequestChanges = () => {
               <label>Request Type *</label>
               <select 
                 value={requestType} 
-                onChange={(e) => setRequestType(e.target.value)}
+                onChange={(e) => {
+                  setRequestType(e.target.value);
+                  resetChangesFields();
+                }}
                 required
               >
-                <option value="delete_sale">Delete Sale</option>
                 <option value="edit_sale">Edit Sale</option>
-                <option value="other">Other Issue</option>
+                <option value="delete_sale">Delete Sale</option>
+                <option value="stock_in">Stock In</option>
+                <option value="stock_out">Stock Out</option>
+                <option value="transfer_product">Transfer Product</option>
+                <option value="extra_cash">Extra Cash</option>
+                <option value="other">Other</option>
               </select>
             </div>
 
-            {(requestType === 'delete_sale' || requestType === 'edit_sale') && (
+            {/* Changes field - dynamic based on request type */}
+            {(requestType === 'edit_sale' || requestType === 'delete_sale') && (
               <div className="form-group">
-                <label>Sale ID (Optional)</label>
+                <label>Changes (Optional)</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                {sales.length > 0 && (
+                  <div className="sales-list">
+                    <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
+                    {sales.map(sale => (
+                      <label key={sale.id} className="sale-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedSales.includes(sale.id)}
+                          onChange={() => handleSaleSelection(sale.id)}
+                        />
+                        <span>
+                          {new Date(sale.timestamp.seconds * 1000).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })} - 
+                          RM {sale.totalPrice.toFixed(2)} 
+                          ({sale.products?.length || 0} items)
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <small>Select a date to see sales from that day</small>
+              </div>
+            )}
+
+            {(requestType === 'stock_in' || requestType === 'stock_out') && (
+              <div className="form-group autocomplete-group">
+                <label>Changes (Optional)</label>
                 <input
                   type="text"
-                  value={saleId}
-                  onChange={(e) => setSaleId(e.target.value)}
-                  placeholder="Enter sale ID if known"
+                  value={supplierInput}
+                  onChange={(e) => setSupplierInput(e.target.value)}
+                  placeholder="Enter supplier name"
                 />
-                <small>You can find the Sale ID in Reports → Sales Recorded</small>
+                {filteredSuppliers.length > 0 && (
+                  <div className="autocomplete-dropdown">
+                    {filteredSuppliers.map((supplier, idx) => (
+                      <div
+                        key={idx}
+                        className="autocomplete-item"
+                        onClick={() => {
+                          setSupplierInput(supplier);
+                          setFilteredSuppliers([]);
+                        }}
+                      >
+                        {supplier}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <small>Start typing to see supplier suggestions</small>
+              </div>
+            )}
+
+            {requestType === 'transfer_product' && (
+              <>
+                <div className="form-group autocomplete-group">
+                  <label>Changes - From Product (Optional)</label>
+                  <input
+                    type="text"
+                    value={productFrom}
+                    onChange={(e) => setProductFrom(e.target.value)}
+                    placeholder="Enter product name to transfer from"
+                  />
+                  {filteredProductsFrom.length > 0 && (
+                    <div className="autocomplete-dropdown">
+                      {filteredProductsFrom.map((product) => (
+                        <div
+                          key={product.id}
+                          className="autocomplete-item"
+                          onClick={() => {
+                            setProductFrom(product.name);
+                            setFilteredProductsFrom([]);
+                          }}
+                        >
+                          {product.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="form-group autocomplete-group">
+                  <label>Changes - To Product (Optional)</label>
+                  <input
+                    type="text"
+                    value={productTo}
+                    onChange={(e) => setProductTo(e.target.value)}
+                    placeholder="Enter product name to transfer to"
+                  />
+                  {filteredProductsTo.length > 0 && (
+                    <div className="autocomplete-dropdown">
+                      {filteredProductsTo.map((product) => (
+                        <div
+                          key={product.id}
+                          className="autocomplete-item"
+                          onClick={() => {
+                            setProductTo(product.name);
+                            setFilteredProductsTo([]);
+                          }}
+                        >
+                          {product.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <small>Start typing to see product suggestions</small>
+                </div>
+              </>
+            )}
+
+            {requestType === 'extra_cash' && (
+              <div className="form-group">
+                <label>Changes - Amount (Optional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={extraCashAmount}
+                  onChange={(e) => setExtraCashAmount(e.target.value)}
+                  placeholder="Enter amount (RM)"
+                />
+                <small>Enter the extra cash amount if known</small>
               </div>
             )}
 
@@ -176,6 +462,13 @@ const RequestChanges = () => {
               >
                 {loading ? 'Submitting...' : 'Submit Request'}
               </button>
+              <button 
+                type="button" 
+                className="btn-back"
+                onClick={() => navigate('/')}
+              >
+                Return to Dashboard
+              </button>
             </div>
           </form>
         </div>
@@ -196,15 +489,31 @@ const RequestChanges = () => {
                 <div className="request-header">
                   <div className="request-type">
                     <span className="type-badge">{getTypeLabel(request.type)}</span>
-                    {request.saleId && (
-                      <span className="sale-id">Sale: {request.saleId.substring(0, 8)}...</span>
-                    )}
                   </div>
                   {getStatusBadge(request.status)}
                 </div>
                 
                 <div className="request-body">
-                  <p className="request-description">{request.description}</p>
+                  {/* Display Changes field if present */}
+                  {request.changes && (
+                    <div className="request-changes">
+                      <strong>Changes:</strong>
+                      {request.changes.saleIds && (
+                        <p>Selected {request.changes.saleIds.length} sale(s) from {new Date(request.changes.date).toLocaleDateString('en-MY')}</p>
+                      )}
+                      {request.changes.supplier && (
+                        <p>Supplier: {request.changes.supplier}</p>
+                      )}
+                      {request.changes.fromProduct && request.changes.toProduct && (
+                        <p>Transfer: {request.changes.fromProduct} → {request.changes.toProduct}</p>
+                      )}
+                      {request.changes.amount && (
+                        <p>Amount: RM {request.changes.amount.toFixed(2)}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  <p className="request-description"><strong>Description:</strong> {request.description}</p>
                   
                   {request.adminResponse && (
                     <div className="admin-response">
@@ -228,6 +537,15 @@ const RequestChanges = () => {
             ))}
           </div>
         )}
+        
+        <div className="page-actions">
+          <button 
+            className="btn-back"
+            onClick={() => navigate('/')}
+          >
+            Return to Dashboard
+          </button>
+        </div>
       </div>
     </div>
   );

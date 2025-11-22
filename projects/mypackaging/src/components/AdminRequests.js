@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
+import { useNavigate } from 'react-router-dom';
 import { subscribeAdminRequests, updateAdminRequest } from '../lib/firestore';
 import { logActivity } from '../lib/auditLog';
 import './AdminRequests.css';
@@ -8,6 +9,7 @@ import './AdminRequests.css';
 const AdminRequests = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useAlert();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('pending'); // pending, completed, all
@@ -70,7 +72,11 @@ const AdminRequests = () => {
     const labels = {
       delete_sale: 'Delete Sale',
       edit_sale: 'Edit Sale',
-      other: 'Other Issue'
+      stock_in: 'Stock In',
+      stock_out: 'Stock Out',
+      transfer_product: 'Transfer Product',
+      extra_cash: 'Extra Cash',
+      other: 'Other'
     };
     return labels[type] || type;
   };
@@ -132,9 +138,6 @@ const AdminRequests = () => {
                 <div className="request-info">
                   <div className="request-meta">
                     <span className="type-badge">{getTypeLabel(request.type)}</span>
-                    {request.saleId && (
-                      <span className="sale-id">Sale: {request.saleId.substring(0, 8)}...</span>
-                    )}
                   </div>
                   <span className="submitter">By: {request.submittedByEmail}</span>
                 </div>
@@ -142,7 +145,26 @@ const AdminRequests = () => {
               </div>
               
               <div className="request-body">
-                <p className="request-description">{request.description}</p>
+                {/* Display Changes field if present */}
+                {request.changes && (
+                  <div className="request-changes">
+                    <strong>Changes:</strong>
+                    {request.changes.saleIds && (
+                      <p>Selected {request.changes.saleIds.length} sale(s) from {new Date(request.changes.date).toLocaleDateString('en-MY')}</p>
+                    )}
+                    {request.changes.supplier && (
+                      <p>Supplier: {request.changes.supplier}</p>
+                    )}
+                    {request.changes.fromProduct && request.changes.toProduct && (
+                      <p>Transfer: {request.changes.fromProduct} → {request.changes.toProduct}</p>
+                    )}
+                    {request.changes.amount && (
+                      <p>Amount: RM {request.changes.amount.toFixed(2)}</p>
+                    )}
+                  </div>
+                )}
+                
+                <p className="request-description"><strong>Description:</strong> {request.description}</p>
                 
                 {request.adminResponse && (
                   <div className="admin-response-display">
@@ -196,10 +218,23 @@ const AdminRequests = () => {
                   <strong>Type:</strong>
                   <span>{getTypeLabel(selectedRequest.type)}</span>
                 </div>
-                {selectedRequest.saleId && (
+                {selectedRequest.changes && (
                   <div className="detail-row">
-                    <strong>Sale ID:</strong>
-                    <span>{selectedRequest.saleId}</span>
+                    <strong>Changes:</strong>
+                    <div>
+                      {selectedRequest.changes.saleIds && (
+                        <p>Selected {selectedRequest.changes.saleIds.length} sale(s) from {new Date(selectedRequest.changes.date).toLocaleDateString('en-MY')}</p>
+                      )}
+                      {selectedRequest.changes.supplier && (
+                        <p>Supplier: {selectedRequest.changes.supplier}</p>
+                      )}
+                      {selectedRequest.changes.fromProduct && selectedRequest.changes.toProduct && (
+                        <p>Transfer: {selectedRequest.changes.fromProduct} → {selectedRequest.changes.toProduct}</p>
+                      )}
+                      {selectedRequest.changes.amount && (
+                        <p>Amount: RM {selectedRequest.changes.amount.toFixed(2)}</p>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="detail-row">
@@ -247,6 +282,15 @@ const AdminRequests = () => {
           </div>
         </div>
       )}
+      
+      <div className="page-actions">
+        <button 
+          className="btn-back"
+          onClick={() => navigate('/')}
+        >
+          Return to Dashboard
+        </button>
+      </div>
     </div>
   );
 };
