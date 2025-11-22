@@ -16,8 +16,8 @@
 
 .page-header p {
   margin: 0;
-  color: #666;
-  font-size: 1rem;
+  color: var(--text-subtitle);
+  font-size: 14px;
 }
 
 .request-actions {

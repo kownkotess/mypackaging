@@ -177,14 +177,14 @@
 
 .dashboard-card h3 {
   margin: 0 0 10px 0;
-  color: #333;
+  color: var(--text-heading);
   font-size: 1.3rem;
   font-weight: 600;
 }
 
 .dashboard-card p {
   margin: 0 0 20px 0;
-  color: #666;
+  color: var(--text-subtitle);
   font-size: 0.95rem;
   line-height: 1.4;
 }
@@ -472,12 +472,4 @@ body.dark-mode .dashboard-card {
 
 body.dark-mode .dashboard-card:hover {
   box-shadow: 0 8px 25px var(--card-shadow);
-}
-
-body.dark-mode .card-title {
-  color: var(--text-primary);
-}
-
-body.dark-mode .card-description {
-  color: var(--text-secondary);
 }

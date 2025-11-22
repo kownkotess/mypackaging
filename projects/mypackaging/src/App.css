@@ -17,6 +17,9 @@
   --text-primary: #212529;
   --text-secondary: #6c757d;
   --text-tertiary: #adb5bd;
+  --text-heading: #000000;
+  --text-title: #333333;
+  --text-subtitle: #666666;
   --border-color: #dee2e6;
   --card-bg: #ffffff;
   --card-shadow: rgba(0, 0, 0, 0.1);
@@ -32,6 +35,9 @@ body.dark-mode {
   --text-primary: #f8f9fa;
   --text-secondary: #adb5bd;
   --text-tertiary: #6c757d;
+  --text-heading: #ffffff;
+  --text-title: #f0f0f0;
+  --text-subtitle: #d0d0d0;
   --border-color: #495057;
   --card-bg: #2a2a2a;
   --card-shadow: rgba(0, 0, 0, 0.3);
@@ -48,6 +54,20 @@ body.dark-mode {
   min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* Global heading and title styles for dark mode */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-heading);
+}
+
+.page-title,
+.card-title,
+.section-title,
+.modal-title,
+.component-title,
+.form-title {
+  color: var(--text-heading);
 }
 
 /* Global theme utility classes */

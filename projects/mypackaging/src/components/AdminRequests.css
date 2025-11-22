@@ -11,12 +11,12 @@
 .page-header h1 {
   margin: 0 0 10px 0;
   font-size: 28px;
-  color: #333;
+  color: var(--text-heading);
 }
 
 .page-header p {
   margin: 0;
-  color: #666;
+  color: var(--text-subtitle);
   font-size: 14px;
 }
 
@@ -205,7 +205,7 @@ body.dark-mode .sale-id {
 }
 
 .submitter {
-  color: #666;
+  color: var(--text-subtitle);
   font-size: 13px;
 }
 
@@ -258,7 +258,7 @@ body.dark-mode .status-rejected {
 }
 
 .request-description {
-  color: #333;
+  color: var(--text-title);
   line-height: 1.6;
   margin: 0;
 }
@@ -398,7 +398,7 @@ body.dark-mode .modal-content {
 .modal-header h2 {
   margin: 0;
   font-size: 20px;
-  color: #333;
+  color: var(--text-heading);
 }
 
 .close-btn {
@@ -491,7 +491,7 @@ body.dark-mode .detail-row span {
 .request-description-full strong {
   display: block;
   margin-bottom: 10px;
-  color: #333;
+  color: var(--text-heading);
   font-size: 14px;
 }
 
@@ -522,7 +522,7 @@ body.dark-mode .request-description-full p {
 .response-section label {
   display: block;
   margin-bottom: 10px;
-  color: #333;
+  color: var(--text-heading);
   font-weight: 500;
   font-size: 14px;
 }

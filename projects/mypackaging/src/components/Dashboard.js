@@ -348,6 +348,24 @@ const Dashboard = () => {
               <button className="card-btn">Settings</button>
             </Link>
           </CanAccess>
+
+          {/* Request Changes - All authenticated users can submit requests */}
+          <Link to="/request-changes" className="dashboard-card">
+            <div className="card-icon">📝</div>
+            <h3>Request Changes</h3>
+            <p>Notify admin about data corrections needed</p>
+            <button className="card-btn">Submit Request</button>
+          </Link>
+
+          {/* Admin Requests - Admin only */}
+          {userRole === 'admin' && (
+            <Link to="/admin-requests" className="dashboard-card">
+              <div className="card-icon">✅</div>
+              <h3>Admin Requests</h3>
+              <p>Review and manage change requests</p>
+              <button className="card-btn">Review Requests</button>
+            </Link>
+          )}
           </>
         )}
         </div>
