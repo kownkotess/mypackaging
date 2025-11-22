@@ -116,9 +116,9 @@ const RequestChanges = () => {
           const salesRef = collection(db, 'sales');
           const q = query(
             salesRef,
-            where('timestamp', '>=', startDate),
-            where('timestamp', '<=', endDate),
-            firestoreOrderBy('timestamp', 'desc')
+            where('createdAt', '>=', startDate),
+            where('createdAt', '<=', endDate),
+            firestoreOrderBy('createdAt', 'desc')
           );
           
           const snapshot = await getDocs(q);
@@ -323,20 +323,23 @@ const RequestChanges = () => {
                 {sales.length > 0 && (
                   <div className="sales-list">
                     <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
-                    {sales.map(sale => (
-                      <label key={sale.id} className="sale-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedSales.includes(sale.id)}
-                          onChange={() => handleSaleSelection(sale.id)}
-                        />
-                        <span>
-                          {new Date(sale.timestamp.seconds * 1000).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })} - 
-                          RM {sale.totalPrice.toFixed(2)} 
-                          ({sale.products?.length || 0} items)
-                        </span>
-                      </label>
-                    ))}
+                    {sales.map(sale => {
+                      const saleTime = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
+                      return (
+                        <label key={sale.id} className="sale-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedSales.includes(sale.id)}
+                            onChange={() => handleSaleSelection(sale.id)}
+                          />
+                          <span>
+                            {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })} - 
+                            RM {sale.totalPrice?.toFixed(2) || '0.00'} 
+                            ({sale.items?.length || 0} items)
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
                 <small>Select a date to see sales from that day</small>
