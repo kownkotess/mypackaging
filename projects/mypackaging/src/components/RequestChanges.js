@@ -42,9 +42,13 @@ const RequestChanges = () => {
   useEffect(() => {
     if (!user) return;
 
+    console.log('[RequestChanges] Setting up subscription for user:', user.uid);
     const unsubscribe = subscribeUserRequests(user.uid, (data) => {
+      console.log('[RequestChanges] Received requests:', data.length, 'requests');
+      console.log('[RequestChanges] All requests:', data);
       // Filter only pending requests
       const pendingRequests = data.filter(req => req.status === 'pending');
+      console.log('[RequestChanges] Pending requests:', pendingRequests.length);
       setRequests(pendingRequests);
     });
 
@@ -603,7 +607,7 @@ const RequestChanges = () => {
                   )}
                 </div>
               </div>
-            )}
+            ))}
             </div>
             
             {/* Pagination */}

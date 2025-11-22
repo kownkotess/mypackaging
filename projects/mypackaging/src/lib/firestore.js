@@ -1210,13 +1210,22 @@ export const subscribeUserRequests = (userId, callback) => {
     orderBy('createdAt', 'desc')
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const requests = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    callback(requests);
-  });
+  return onSnapshot(q, 
+    (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(requests);
+    },
+    (error) => {
+      console.error('Error subscribing to user requests:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      // Return empty array on error
+      callback([]);
+    }
+  );
 };
 
 /**
