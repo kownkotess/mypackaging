@@ -24,6 +24,7 @@ const RequestChanges = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [sales, setSales] = useState([]);
   const [selectedSales, setSelectedSales] = useState([]);
+  const [showSalesList, setShowSalesList] = useState(false);
   const [supplierInput, setSupplierInput] = useState('');
   const [suppliers, setSuppliers] = useState([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState([]);
@@ -127,6 +128,7 @@ const RequestChanges = () => {
             ...doc.data()
           }));
           setSales(salesData);
+          setShowSalesList(true); // Open the list when date changes
         } catch (error) {
           console.error('Error loading sales:', error);
           showError('Failed to load sales for selected date');
@@ -136,6 +138,7 @@ const RequestChanges = () => {
     } else {
       setSales([]);
       setSelectedSales([]);
+      setShowSalesList(false);
     }
   }, [selectedDate, requestType, showError]);
 
@@ -187,6 +190,7 @@ const RequestChanges = () => {
     setSelectedDate('');
     setSales([]);
     setSelectedSales([]);
+    setShowSalesList(false);
     setSupplierInput('');
     setProductFrom('');
     setProductTo('');
@@ -341,7 +345,7 @@ const RequestChanges = () => {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
                 />
-                {sales.length > 0 && (
+                {sales.length > 0 && showSalesList && (
                   <div className="sales-list">
                     <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
                     {sales.map(sale => {
@@ -369,6 +373,30 @@ const RequestChanges = () => {
                         </label>
                       );
                     })}
+                    <div className="sales-list-footer">
+                      <span className="selected-count">
+                        {selectedSales.length} sale{selectedSales.length !== 1 ? 's' : ''} selected
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-done"
+                        onClick={() => setShowSalesList(false)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {sales.length > 0 && !showSalesList && selectedSales.length > 0 && (
+                  <div className="sales-summary">
+                    <span>{selectedSales.length} sale{selectedSales.length !== 1 ? 's' : ''} selected</span>
+                    <button
+                      type="button"
+                      className="btn-edit"
+                      onClick={() => setShowSalesList(true)}
+                    >
+                      Edit Selection
+                    </button>
                   </div>
                 )}
                 <small>Select a date to see sales from that day</small>

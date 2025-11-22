@@ -213,6 +213,90 @@ body.dark-mode .sale-items {
   color: #999;
 }
 
+/* Sales list footer */
+.sales-list-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-top: 8px;
+  border-top: 2px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+body.dark-mode .sales-list-footer {
+  border-top-color: #444;
+  background: #1a1a1a;
+}
+
+.selected-count {
+  font-weight: 600;
+  color: #004D24;
+  font-size: 0.9rem;
+}
+
+body.dark-mode .selected-count {
+  color: #4CAF50;
+}
+
+.btn-done {
+  padding: 8px 20px;
+  background: #004D24;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-done:hover {
+  background: #006B32;
+}
+
+/* Sales summary (when list is closed) */
+.sales-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-top: 10px;
+  background: #e8f5e9;
+  border-radius: 4px;
+  border-left: 3px solid #004D24;
+}
+
+body.dark-mode .sales-summary {
+  background: #1a2e1a;
+  border-left-color: #4CAF50;
+}
+
+.sales-summary span {
+  font-weight: 600;
+  color: #004D24;
+}
+
+body.dark-mode .sales-summary span {
+  color: #4CAF50;
+}
+
+.btn-edit {
+  padding: 6px 16px;
+  background: #004D24;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit:hover {
+  background: #006B32;
+}
+
 /* Autocomplete dropdown */
 .autocomplete-group {
   position: relative;
