@@ -1200,6 +1200,49 @@ export const createAdminRequest = async (requestData) => {
 };
 
 /**
+ * Cleanup old admin requests (completed/rejected older than 30 days)
+ * Called when admin opens AdminRequests page
+ * NOTE: For sales/purchases older than 24 months, use DataCleanup component manually
+ * (Automatic cleanup would require Firebase Blaze plan with Cloud Functions)
+ */
+export const cleanupOldAdminRequests = async () => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const requestsRef = collection(db, 'adminRequests');
+    const q = query(
+      requestsRef,
+      where('status', 'in', ['completed', 'rejected']),
+      where('updatedAt', '<=', Timestamp.fromDate(thirtyDaysAgo))
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log('No old admin requests to delete');
+      return 0;
+    }
+    
+    // Delete in batches of 500
+    const batch = writeBatch(db);
+    let deleteCount = 0;
+    
+    snapshot.docs.forEach((docSnapshot) => {
+      batch.delete(docSnapshot.ref);
+      deleteCount++;
+    });
+    
+    await batch.commit();
+    console.log(`Deleted ${deleteCount} old admin requests`);
+    return deleteCount;
+  } catch (error) {
+    console.error('Error cleaning up old admin requests:', error);
+    return 0;
+  }
+};
+
+/**
  * Subscribe to user's own requests
  */
 export const subscribeUserRequests = (userId, callback) => {
@@ -1288,6 +1331,7 @@ const firestoreUtils = {
   bulkStockAdjustment,
   getUniqueCustomerNames,
   createAdminRequest,
+  cleanupOldAdminRequests,
   subscribeUserRequests,
   subscribeAdminRequests,
   updateAdminRequest

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { useNavigate } from 'react-router-dom';
-import { subscribeAdminRequests, updateAdminRequest, subscribeProducts } from '../lib/firestore';
+import { subscribeAdminRequests, updateAdminRequest, subscribeProducts, cleanupOldAdminRequests } from '../lib/firestore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logActivity } from '../lib/auditLog';
@@ -23,6 +23,22 @@ const AdminRequests = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Cleanup old requests on component mount
+  useEffect(() => {
+    const performCleanup = async () => {
+      try {
+        const deletedCount = await cleanupOldAdminRequests();
+        if (deletedCount > 0) {
+          console.log(`Auto-cleanup: Deleted ${deletedCount} old requests`);
+        }
+      } catch (error) {
+        console.error('Failed to cleanup old requests:', error);
+      }
+    };
+    
+    performCleanup();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeAdminRequests((data) => {
