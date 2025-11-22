@@ -162,6 +162,27 @@ const RequestChanges = () => {
     });
   };
 
+  const calculateTotalUnits = (item) => {
+    // If item already has a quantity field, use it (legacy support)
+    if (item.quantity) return item.quantity;
+
+    // Find the product to get bulk quantities
+    const product = products.find(p => p.id === item.productId);
+    if (!product) {
+      // Fallback: just add quantities without conversion
+      return (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0);
+    }
+
+    // Calculate using conversion formula: Box×bigBulkQty + Pack×smallBulkQty + Loose
+    const qtyBox = Number(item.qtyBox) || 0;
+    const qtyPack = Number(item.qtyPack) || 0;
+    const qtyLoose = Number(item.qtyLoose) || 0;
+    const bigBulkQty = Number(product.bigBulkQty) || 1;
+    const smallBulkQty = Number(product.smallBulkQty) || 1;
+    
+    return (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+  };
+
   const resetChangesFields = () => {
     setSelectedDate('');
     setSales([]);
@@ -325,6 +346,9 @@ const RequestChanges = () => {
                     <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
                     {sales.map(sale => {
                       const saleTime = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
+                      const itemsText = (sale.items || []).map(item => 
+                        `${item.name || 'Unknown'} ×${calculateTotalUnits(item)}`
+                      ).join(', ');
                       return (
                         <label key={sale.id} className="sale-checkbox">
                           <input
@@ -332,10 +356,15 @@ const RequestChanges = () => {
                             checked={selectedSales.includes(sale.id)}
                             onChange={() => handleSaleSelection(sale.id)}
                           />
-                          <span>
-                            {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })} - 
-                            RM {sale.totalPrice?.toFixed(2) || '0.00'} 
-                            ({sale.items?.length || 0} items)
+                          <span className="sale-info">
+                            <span className="sale-time">
+                              {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="sale-price">RM {(sale.total || 0).toFixed(2)}</span>
+                            {sale.customerName && (
+                              <span className="sale-customer">👤 {sale.customerName}</span>
+                            )}
+                            <span className="sale-items">{itemsText || 'No items'}</span>
                           </span>
                         </label>
                       );

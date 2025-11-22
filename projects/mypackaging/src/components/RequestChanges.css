@@ -131,36 +131,86 @@ body.dark-mode .sales-list {
 
 .sale-checkbox {
   display: flex;
-  align-items: center;
-  padding: 8px;
-  margin-bottom: 5px;
+  align-items: flex-start;
+  padding: 12px;
+  margin-bottom: 8px;
   background: white;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s;
+  border: 1px solid #e0e0e0;
 }
 
 body.dark-mode .sale-checkbox {
   background: #1a1a1a;
+  border-color: #333;
 }
 
 .sale-checkbox:hover {
-  background: #e9ecef;
+  background: #f5f5f5;
+  border-color: #004D24;
 }
 
 body.dark-mode .sale-checkbox:hover {
-  background: #333;
+  background: #2a2a2a;
+  border-color: #4CAF50;
 }
 
 .sale-checkbox input[type="checkbox"] {
   width: auto;
-  margin-right: 10px;
+  margin-right: 12px;
+  margin-top: 4px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.sale-checkbox span {
+.sale-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
   font-size: 0.875rem;
   color: var(--text-primary);
+}
+
+.sale-time {
+  font-weight: 600;
+  color: #004D24;
+}
+
+body.dark-mode .sale-time {
+  color: #4CAF50;
+}
+
+.sale-price {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #000;
+}
+
+body.dark-mode .sale-price {
+  color: #fff;
+}
+
+.sale-customer {
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+}
+
+body.dark-mode .sale-customer {
+  color: #aaa;
+}
+
+.sale-items {
+  font-size: 0.8rem;
+  color: #666;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+body.dark-mode .sale-items {
+  color: #999;
 }
 
 /* Autocomplete dropdown */
