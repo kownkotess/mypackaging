@@ -24,6 +24,8 @@ import StockMonitoring from './components/StockMonitoring';
 import InstallPrompt from './components/InstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import DataCleanup from './components/DataCleanup';
+import RequestChanges from './components/RequestChanges';
+import AdminRequests from './components/AdminRequests';
 
 function ScrollToTop() {
   const location = useLocation();
@@ -194,6 +196,20 @@ function App() {
               <Route path="/change-password" element={
                 <ProtectedRoute>
                   <ChangePassword />
+                </ProtectedRoute>
+              } />
+              
+              {/* Request Changes - accessible to all authenticated users */}
+              <Route path="/request-changes" element={
+                <ProtectedRoute>
+                  <RequestChanges />
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin Requests - admin only */}
+              <Route path="/admin-requests" element={
+                <ProtectedRoute requiredRole={['admin']}>
+                  <AdminRequests />
                 </ProtectedRoute>
               } />
               

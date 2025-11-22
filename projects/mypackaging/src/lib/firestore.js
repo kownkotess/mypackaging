@@ -1176,6 +1176,81 @@ export const deleteExtraCash = async (extraCashId, extraCashData) => {
   }
 };
 
+// ============================================
+// ADMIN REQUESTS FUNCTIONS
+// ============================================
+
+/**
+ * Create a new admin request
+ */
+export const createAdminRequest = async (requestData) => {
+  try {
+    const requestsRef = collection(db, 'adminRequests');
+    const docRef = await addDoc(requestsRef, {
+      ...requestData,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating admin request:', error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribe to user's own requests
+ */
+export const subscribeUserRequests = (userId, callback) => {
+  const requestsRef = collection(db, 'adminRequests');
+  const q = query(
+    requestsRef,
+    where('submittedBy', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(requests);
+  });
+};
+
+/**
+ * Subscribe to all admin requests (admin only)
+ */
+export const subscribeAdminRequests = (callback) => {
+  const requestsRef = collection(db, 'adminRequests');
+  const q = query(requestsRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    callback(requests);
+  });
+};
+
+/**
+ * Update an admin request (admin only)
+ */
+export const updateAdminRequest = async (requestId, updateData) => {
+  try {
+    const requestRef = doc(db, 'adminRequests', requestId);
+    await updateDoc(requestRef, {
+      ...updateData,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error updating admin request:', error);
+    throw error;
+  }
+};
+
 const firestoreUtils = {
   getProducts,
   addProduct,
@@ -1202,7 +1277,11 @@ const firestoreUtils = {
   deleteExtraCash,
   bulkUpdateProducts,
   bulkStockAdjustment,
-  getUniqueCustomerNames
+  getUniqueCustomerNames,
+  createAdminRequest,
+  subscribeUserRequests,
+  subscribeAdminRequests,
+  updateAdminRequest
 };
 
 export default firestoreUtils;

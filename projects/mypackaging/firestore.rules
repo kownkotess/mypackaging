@@ -249,6 +249,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Admin Requests collection (for change requests from staff/managers)
+    // All authenticated users can create requests
+    // Users can read their own requests
+    // Admin can read all requests and update them
+    match /adminRequests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.submittedBy == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Default deny rule for any other collections
     match /{document=**} {
       allow read, write: if false;

@@ -1,0 +1,254 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContextWrapper';
+import { useAlert } from '../context/AlertContext';
+import { subscribeAdminRequests, updateAdminRequest } from '../lib/firestore';
+import { logActivity } from '../lib/auditLog';
+import './AdminRequests.css';
+
+const AdminRequests = () => {
+  const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('pending'); // pending, completed, all
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [adminResponse, setAdminResponse] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = subscribeAdminRequests((data) => {
+      setRequests(data);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredRequests = requests.filter(req => {
+    if (filter === 'all') return true;
+    return req.status === filter;
+  });
+
+  const handleUpdateStatus = async (requestId, newStatus) => {
+    setLoading(true);
+    try {
+      await updateAdminRequest(requestId, {
+        status: newStatus,
+        adminResponse: adminResponse.trim() || null,
+        completedAt: new Date(),
+        completedBy: user.email
+      });
+
+      await logActivity(
+        'admin_request_updated',
+        user.email,
+        `Request ${newStatus}: ${requestId.substring(0, 8)}`,
+        'action',
+        { requestId, status: newStatus }
+      );
+
+      showSuccess(`Request marked as ${newStatus}!`);
+      setSelectedRequest(null);
+      setAdminResponse('');
+    } catch (error) {
+      console.error('Error updating request:', error);
+      showError('Failed to update request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: { text: 'Pending', class: 'status-pending' },
+      completed: { text: 'Completed', class: 'status-completed' },
+      rejected: { text: 'Rejected', class: 'status-rejected' }
+    };
+    const badge = badges[status] || badges.pending;
+    return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
+  };
+
+  const getTypeLabel = (type) => {
+    const labels = {
+      delete_sale: 'Delete Sale',
+      edit_sale: 'Edit Sale',
+      other: 'Other Issue'
+    };
+    return labels[type] || type;
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-MY', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+
+  return (
+    <div className="admin-requests-page">
+      <div className="page-header">
+        <h1>Admin Requests</h1>
+        <p>Review and manage change requests from staff and managers</p>
+      </div>
+
+      <div className="filter-bar">
+        <button 
+          className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+          onClick={() => setFilter('pending')}
+        >
+          Pending {pendingCount > 0 && <span className="badge">{pendingCount}</span>}
+        </button>
+        <button 
+          className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+          onClick={() => setFilter('completed')}
+        >
+          Completed
+        </button>
+        <button 
+          className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilter('all')}
+        >
+          All
+        </button>
+      </div>
+
+      {filteredRequests.length === 0 ? (
+        <div className="empty-state">
+          <p>📋 No {filter !== 'all' ? filter : ''} requests</p>
+          <p className="empty-subtitle">
+            {filter === 'pending' ? 'All caught up! No pending requests.' : 'No requests found.'}
+          </p>
+        </div>
+      ) : (
+        <div className="requests-list">
+          {filteredRequests.map((request) => (
+            <div key={request.id} className="request-card">
+              <div className="request-header">
+                <div className="request-info">
+                  <div className="request-meta">
+                    <span className="type-badge">{getTypeLabel(request.type)}</span>
+                    {request.saleId && (
+                      <span className="sale-id">Sale: {request.saleId.substring(0, 8)}...</span>
+                    )}
+                  </div>
+                  <span className="submitter">By: {request.submittedByEmail}</span>
+                </div>
+                {getStatusBadge(request.status)}
+              </div>
+              
+              <div className="request-body">
+                <p className="request-description">{request.description}</p>
+                
+                {request.adminResponse && (
+                  <div className="admin-response-display">
+                    <strong>Your Response:</strong>
+                    <p>{request.adminResponse}</p>
+                    {request.completedBy && (
+                      <small>By {request.completedBy} on {formatDate(request.completedAt)}</small>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="request-footer">
+                <span className="request-date">
+                  Submitted: {formatDate(request.createdAt)}
+                </span>
+                
+                {request.status === 'pending' && (
+                  <div className="request-actions">
+                    <button
+                      onClick={() => setSelectedRequest(request)}
+                      className="btn-action"
+                    >
+                      Review
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Review Modal */}
+      {selectedRequest && (
+        <div className="modal-overlay" onClick={() => setSelectedRequest(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Review Request</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setSelectedRequest(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="request-details">
+                <div className="detail-row">
+                  <strong>Type:</strong>
+                  <span>{getTypeLabel(selectedRequest.type)}</span>
+                </div>
+                {selectedRequest.saleId && (
+                  <div className="detail-row">
+                    <strong>Sale ID:</strong>
+                    <span>{selectedRequest.saleId}</span>
+                  </div>
+                )}
+                <div className="detail-row">
+                  <strong>Submitted by:</strong>
+                  <span>{selectedRequest.submittedByEmail}</span>
+                </div>
+                <div className="detail-row">
+                  <strong>Date:</strong>
+                  <span>{formatDate(selectedRequest.createdAt)}</span>
+                </div>
+              </div>
+
+              <div className="request-description-full">
+                <strong>Description:</strong>
+                <p>{selectedRequest.description}</p>
+              </div>
+
+              <div className="response-section">
+                <label>Admin Response (Optional):</label>
+                <textarea
+                  value={adminResponse}
+                  onChange={(e) => setAdminResponse(e.target.value)}
+                  placeholder="Add a note or response..."
+                  rows="4"
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-reject"
+                onClick={() => handleUpdateStatus(selectedRequest.id, 'rejected')}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Reject'}
+              </button>
+              <button
+                className="btn-complete"
+                onClick={() => handleUpdateStatus(selectedRequest.id, 'completed')}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Mark as Completed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminRequests;

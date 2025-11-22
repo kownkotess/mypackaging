@@ -233,6 +233,18 @@ const SwipeableDrawer = () => {
                 </>
               )}
               
+              <Link to="/request-changes" className="drawer-nav-link" onClick={closeDrawer}>
+                <span className="nav-icon">📝</span>
+                Request Changes
+              </Link>
+              
+              {userRole === 'admin' && (
+                <Link to="/admin-requests" className="drawer-nav-link" onClick={closeDrawer}>
+                  <span className="nav-icon">✅</span>
+                  Admin Requests
+                </Link>
+              )}
+              
               <Link to="/change-password" className="drawer-nav-link" onClick={closeDrawer}>
                 <span className="nav-icon">🔐</span>
                 Change Password
