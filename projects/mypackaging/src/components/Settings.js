@@ -7,6 +7,7 @@ import { db, auth } from '../firebase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import EmailSettings from './EmailSettings';
+import DataCleanup from './DataCleanup';
 import businessInfoService from '../services/businessInfoService';
 import { getAuditLogs } from '../lib/auditLog';
 import './Settings.css';
@@ -30,7 +31,7 @@ const Settings = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'system', 'operational', 'email', 'users', 'security'].includes(tabParam)) {
+    if (tabParam && ['profile', 'system', 'operational', 'email', 'users', 'security', 'cleanup'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -384,6 +385,12 @@ const Settings = () => {
                 >
                   🔒 Security
                 </button>
+                <button 
+                  className={`nav-btn ${activeTab === 'cleanup' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('cleanup')}
+                >
+                  🧹 Data Cleanup
+                </button>
               </>
             )}
           </div>
@@ -421,6 +428,10 @@ const Settings = () => {
                 onViewAuditLogs={handleViewAuditLogs}
                 onExportAuditLogs={exportAuditLogs}
               />
+            )}
+            
+            {activeTab === 'cleanup' && userRole === 'admin' && (
+              <DataCleanup />
             )}
           </div>
         </div>
@@ -1167,27 +1178,6 @@ const SecuritySettings = ({ onViewAuditLogs, onExportAuditLogs }) => (
           Force logout on browser close
         </label>
       </div>
-    </div>
-
-    <div className="settings-group">
-      <h3>Data Protection</h3>
-      <div className="form-group">
-        <label>Data Retention Period (months):</label>
-        <select className="form-control">
-          <option value="12">12 months</option>
-          <option value="24">24 months</option>
-          <option value="36">36 months</option>
-          <option value="60">5 years</option>
-        </select>
-      </div>
-      <div className="setting-item">
-        <label>
-          <input type="checkbox" defaultChecked />
-          GDPR compliance mode
-        </label>
-      </div>
-      <button className="btn btn-secondary">Customer Data Request</button>
-      <button className="btn btn-danger">Data Deletion Request</button>
     </div>
 
     <div className="settings-group">

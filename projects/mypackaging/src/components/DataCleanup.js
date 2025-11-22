@@ -18,43 +18,69 @@ const DataCleanup = () => {
   const analyzeData = async () => {
     setLoading(true);
     try {
-      // Define cutoff date - keep only data from today (Oct 7, 2025)
-      const cutoffDate = new Date('2025-10-07T00:00:00.000Z');
+      // Calculate cutoff date - 24 months ago from today
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - 24);
       
-      // Get all payments
-      const paymentsSnapshot = await getDocs(collection(db, 'payments'));
-      console.log(`Found ${paymentsSnapshot.size} payments in database`);
+      console.log(`Analyzing data older than: ${cutoffDate.toLocaleDateString()}`);
       
-      // Get all sales
-      const salesSnapshot = await getDocs(collection(db, 'sales'));
-      console.log(`Found ${salesSnapshot.size} sales in database`);
+      // Get all collections (except products)
+      const [
+        paymentsSnapshot,
+        salesSnapshot,
+        purchasesSnapshot,
+        returnsSnapshot,
+        shopUsesSnapshot,
+        transfersSnapshot,
+        extraCashSnapshot
+      ] = await Promise.all([
+        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'sales')),
+        getDocs(collection(db, 'purchases')),
+        getDocs(collection(db, 'returns')),
+        getDocs(collection(db, 'shopUses')),
+        getDocs(collection(db, 'transfers')),
+        getDocs(collection(db, 'extraCash'))
+      ]);
+      
+      console.log(`Found ${paymentsSnapshot.size} payments`);
+      console.log(`Found ${salesSnapshot.size} sales`);
+      console.log(`Found ${purchasesSnapshot.size} purchases`);
+      console.log(`Found ${returnsSnapshot.size} returns`);
+      console.log(`Found ${shopUsesSnapshot.size} shop uses`);
+      console.log(`Found ${transfersSnapshot.size} transfers`);
+      console.log(`Found ${extraCashSnapshot.size} extra cash records`);
       
       let paymentsToDelete = [];
       let salesToDelete = [];
+      let purchasesToDelete = [];
+      let returnsToDelete = [];
+      let shopUsesToDelete = [];
+      let transfersToDelete = [];
+      let extraCashToDelete = [];
+      
       let paymentsToKeep = [];
       let salesToKeep = [];
+      let purchasesToKeep = [];
+      let returnsToKeep = [];
+      let shopUsesToKeep = [];
+      let transfersToKeep = [];
+      let extraCashToKeep = [];
       
       // Analyze payments
       paymentsSnapshot.forEach(docSnapshot => {
         const data = docSnapshot.data();
         const createdAt = data.createdAt?.toDate();
         
-        if (createdAt < cutoffDate) {
+        if (createdAt && createdAt < cutoffDate) {
           paymentsToDelete.push({
             id: docSnapshot.id,
             amount: data.amount,
             customerName: data.customerName,
-            paymentMethod: data.paymentMethod,
             createdAt: createdAt
           });
         } else {
-          paymentsToKeep.push({
-            id: docSnapshot.id,
-            amount: data.amount,
-            customerName: data.customerName,
-            paymentMethod: data.paymentMethod,
-            createdAt: createdAt
-          });
+          paymentsToKeep.push({ id: docSnapshot.id });
         }
       });
       
@@ -63,39 +89,133 @@ const DataCleanup = () => {
         const data = docSnapshot.data();
         const createdAt = data.createdAt?.toDate();
         
-        if (createdAt < cutoffDate) {
+        if (createdAt && createdAt < cutoffDate) {
           salesToDelete.push({
             id: docSnapshot.id,
             total: data.total,
             customerName: data.customerName,
-            paymentType: data.paymentType,
-            status: data.status,
             createdAt: createdAt
           });
         } else {
-          salesToKeep.push({
+          salesToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
+      // Analyze purchases
+      purchasesSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          purchasesToDelete.push({
             id: docSnapshot.id,
-            total: data.total,
-            customerName: data.customerName,
-            paymentType: data.paymentType,
-            status: data.status,
+            supplierName: data.supplierName,
+            totalCost: data.totalCost,
             createdAt: createdAt
           });
+        } else {
+          purchasesToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
+      // Analyze returns
+      returnsSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          returnsToDelete.push({
+            id: docSnapshot.id,
+            supplierName: data.supplierName,
+            createdAt: createdAt
+          });
+        } else {
+          returnsToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
+      // Analyze shop uses
+      shopUsesSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          shopUsesToDelete.push({
+            id: docSnapshot.id,
+            reason: data.reason,
+            createdAt: createdAt
+          });
+        } else {
+          shopUsesToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
+      // Analyze transfers
+      transfersSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          transfersToDelete.push({
+            id: docSnapshot.id,
+            fromProduct: data.fromProductName,
+            toProduct: data.toProductName,
+            createdAt: createdAt
+          });
+        } else {
+          transfersToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
+      // Analyze extra cash
+      extraCashSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          extraCashToDelete.push({
+            id: docSnapshot.id,
+            amount: data.amount,
+            notes: data.notes,
+            createdAt: createdAt
+          });
+        } else {
+          extraCashToKeep.push({ id: docSnapshot.id });
         }
       });
       
       setAnalysis({
         paymentsToDelete,
         salesToDelete,
+        purchasesToDelete,
+        returnsToDelete,
+        shopUsesToDelete,
+        transfersToDelete,
+        extraCashToDelete,
         paymentsToKeep,
-        salesToKeep
+        salesToKeep,
+        purchasesToKeep,
+        returnsToKeep,
+        shopUsesToKeep,
+        transfersToKeep,
+        extraCashToKeep,
+        cutoffDate
       });
       
+      const totalToDelete = paymentsToDelete.length + salesToDelete.length + 
+                           purchasesToDelete.length + returnsToDelete.length +
+                           shopUsesToDelete.length + transfersToDelete.length +
+                           extraCashToDelete.length;
+      
       console.log('Analysis Results:');
-      console.log(`Payments to delete: ${paymentsToDelete.length}`);
-      console.log(`Payments to keep: ${paymentsToKeep.length}`);
-      console.log(`Sales to delete: ${salesToDelete.length}`);
-      console.log(`Sales to keep: ${salesToKeep.length}`);
+      console.log(`Total records to delete: ${totalToDelete}`);
+      console.log(`  - Payments: ${paymentsToDelete.length}`);
+      console.log(`  - Sales: ${salesToDelete.length}`);
+      console.log(`  - Purchases: ${purchasesToDelete.length}`);
+      console.log(`  - Returns: ${returnsToDelete.length}`);
+      console.log(`  - Shop Uses: ${shopUsesToDelete.length}`);
+      console.log(`  - Transfers: ${transfersToDelete.length}`);
+      console.log(`  - Extra Cash: ${extraCashToDelete.length}`);
       
     } catch (error) {
       console.error('Error analyzing data:', error);
@@ -107,28 +227,76 @@ const DataCleanup = () => {
   const performCleanup = async () => {
     if (!analysis) return;
     
+    const totalToDelete = analysis.paymentsToDelete.length + analysis.salesToDelete.length + 
+                         analysis.purchasesToDelete.length + analysis.returnsToDelete.length +
+                         analysis.shopUsesToDelete.length + analysis.transfersToDelete.length +
+                         analysis.extraCashToDelete.length;
+    
     const confirmed = await showConfirm(
-      'Delete Old Test Data',
-      `This will permanently delete ${analysis.paymentsToDelete.length} old payments and ${analysis.salesToDelete.length} old sales. This cannot be undone. Are you sure?`
+      'Delete Old Data (24+ months)',
+      `This will permanently delete ${totalToDelete} records older than ${analysis.cutoffDate.toLocaleDateString()}:\n\n` +
+      `• ${analysis.paymentsToDelete.length} payments\n` +
+      `• ${analysis.salesToDelete.length} sales\n` +
+      `• ${analysis.purchasesToDelete.length} purchases\n` +
+      `• ${analysis.returnsToDelete.length} returns\n` +
+      `• ${analysis.shopUsesToDelete.length} shop uses\n` +
+      `• ${analysis.transfersToDelete.length} transfers\n` +
+      `• ${analysis.extraCashToDelete.length} extra cash\n\n` +
+      `This cannot be undone. Continue?`
     );
     
     if (!confirmed) return;
     
     setLoading(true);
     try {
+      let deletedCount = 0;
+      
       // Delete old payments
       for (const payment of analysis.paymentsToDelete) {
         await deleteDoc(doc(db, 'payments', payment.id));
-        console.log(`Deleted payment: ${payment.customerName} - RM${payment.amount}`);
+        deletedCount++;
       }
       
       // Delete old sales
       for (const sale of analysis.salesToDelete) {
         await deleteDoc(doc(db, 'sales', sale.id));
-        console.log(`Deleted sale: ${sale.customerName} - RM${sale.total}`);
+        deletedCount++;
       }
       
-      showSuccess(`Cleanup completed! Deleted ${analysis.paymentsToDelete.length} payments and ${analysis.salesToDelete.length} sales.`);
+      // Delete old purchases
+      for (const purchase of analysis.purchasesToDelete) {
+        await deleteDoc(doc(db, 'purchases', purchase.id));
+        deletedCount++;
+      }
+      
+      // Delete old returns
+      for (const returnDoc of analysis.returnsToDelete) {
+        await deleteDoc(doc(db, 'returns', returnDoc.id));
+        deletedCount++;
+      }
+      
+      // Delete old shop uses
+      for (const shopUse of analysis.shopUsesToDelete) {
+        await deleteDoc(doc(db, 'shopUses', shopUse.id));
+        deletedCount++;
+      }
+      
+      // Delete old transfers
+      for (const transfer of analysis.transfersToDelete) {
+        await deleteDoc(doc(db, 'transfers', transfer.id));
+        deletedCount++;
+      }
+      
+      // Delete old extra cash
+      for (const extraCash of analysis.extraCashToDelete) {
+        await deleteDoc(doc(db, 'extraCash', extraCash.id));
+        deletedCount++;
+      }
+      
+      showSuccess(
+        `Cleanup completed! Deleted ${deletedCount} records older than 24 months.\n` +
+        `Products were NOT affected.`
+      );
       setAnalysis(null);
       
     } catch (error) {
@@ -145,7 +313,27 @@ const DataCleanup = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h2>🧹 Database Cleanup Tool</h2>
-      <p>This tool will remove old test data while keeping your recent legitimate business records.</p>
+      <p>
+        This tool deletes records older than <strong>24 months (2 years)</strong> to keep your database clean.
+        <br />
+        <strong>Products are never deleted</strong> - only transaction records.
+      </p>
+      
+      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+        <strong>What will be cleaned:</strong>
+        <ul style={{ marginTop: '10px', marginBottom: '0' }}>
+          <li>Sales (older than 24 months)</li>
+          <li>Payments (older than 24 months)</li>
+          <li>Purchases (older than 24 months)</li>
+          <li>Returns (older than 24 months)</li>
+          <li>Shop Uses (older than 24 months)</li>
+          <li>Transfers (older than 24 months)</li>
+          <li>Extra Cash (older than 24 months)</li>
+        </ul>
+        <p style={{ marginTop: '10px', marginBottom: '0', fontWeight: 'bold', color: '#28a745' }}>
+          ✓ Products will NOT be affected
+        </p>
+      </div>
       
       <div style={{ marginBottom: '20px' }}>
         <button 
@@ -167,54 +355,45 @@ const DataCleanup = () => {
       {analysis && (
         <div>
           <h3>📊 Analysis Results</h3>
+          <p style={{ marginBottom: '20px' }}>
+            Cutoff Date: <strong>{analysis.cutoffDate.toLocaleDateString()}</strong> (24 months ago)
+          </p>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             <div style={{ padding: '15px', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '5px' }}>
-              <h4>🗑️ To Delete (Old Test Data)</h4>
+              <h4>🗑️ To Delete (Older than 24 months)</h4>
               <p><strong>Payments:</strong> {analysis.paymentsToDelete.length}</p>
               <p><strong>Sales:</strong> {analysis.salesToDelete.length}</p>
-              
-              <details>
-                <summary>View payments to delete</summary>
-                {analysis.paymentsToDelete.map(payment => (
-                  <div key={payment.id} style={{ fontSize: '0.9em', margin: '5px 0' }}>
-                    {payment.customerName}: RM{payment.amount} ({payment.paymentMethod}) - {payment.createdAt.toLocaleDateString()}
-                  </div>
-                ))}
-              </details>
-              
-              <details>
-                <summary>View sales to delete</summary>
-                {analysis.salesToDelete.map(sale => (
-                  <div key={sale.id} style={{ fontSize: '0.9em', margin: '5px 0' }}>
-                    {sale.customerName}: RM{sale.total} ({sale.paymentType}/{sale.status}) - {sale.createdAt.toLocaleDateString()}
-                  </div>
-                ))}
-              </details>
+              <p><strong>Purchases:</strong> {analysis.purchasesToDelete.length}</p>
+              <p><strong>Returns:</strong> {analysis.returnsToDelete.length}</p>
+              <p><strong>Shop Uses:</strong> {analysis.shopUsesToDelete.length}</p>
+              <p><strong>Transfers:</strong> {analysis.transfersToDelete.length}</p>
+              <p><strong>Extra Cash:</strong> {analysis.extraCashToDelete.length}</p>
+              <hr />
+              <p style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                Total: {analysis.paymentsToDelete.length + analysis.salesToDelete.length + 
+                       analysis.purchasesToDelete.length + analysis.returnsToDelete.length +
+                       analysis.shopUsesToDelete.length + analysis.transfersToDelete.length +
+                       analysis.extraCashToDelete.length}
+              </p>
             </div>
 
             <div style={{ padding: '15px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', borderRadius: '5px' }}>
-              <h4>✅ To Keep (Recent Data)</h4>
+              <h4>✅ To Keep (Within 24 months)</h4>
               <p><strong>Payments:</strong> {analysis.paymentsToKeep.length}</p>
               <p><strong>Sales:</strong> {analysis.salesToKeep.length}</p>
-              
-              <details>
-                <summary>View payments to keep</summary>
-                {analysis.paymentsToKeep.map(payment => (
-                  <div key={payment.id} style={{ fontSize: '0.9em', margin: '5px 0' }}>
-                    {payment.customerName}: RM{payment.amount} ({payment.paymentMethod}) - {payment.createdAt.toLocaleDateString()}
-                  </div>
-                ))}
-              </details>
-              
-              <details>
-                <summary>View sales to keep</summary>
-                {analysis.salesToKeep.map(sale => (
-                  <div key={sale.id} style={{ fontSize: '0.9em', margin: '5px 0' }}>
-                    {sale.customerName}: RM{sale.total} ({sale.paymentType}/{sale.status}) - {sale.createdAt.toLocaleDateString()}
-                  </div>
-                ))}
-              </details>
+              <p><strong>Purchases:</strong> {analysis.purchasesToKeep.length}</p>
+              <p><strong>Returns:</strong> {analysis.returnsToKeep.length}</p>
+              <p><strong>Shop Uses:</strong> {analysis.shopUsesToKeep.length}</p>
+              <p><strong>Transfers:</strong> {analysis.transfersToKeep.length}</p>
+              <p><strong>Extra Cash:</strong> {analysis.extraCashToKeep.length}</p>
+              <hr />
+              <p style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                Total: {analysis.paymentsToKeep.length + analysis.salesToKeep.length + 
+                       analysis.purchasesToKeep.length + analysis.returnsToKeep.length +
+                       analysis.shopUsesToKeep.length + analysis.transfersToKeep.length +
+                       analysis.extraCashToKeep.length}
+              </p>
             </div>
           </div>
 
