@@ -19,6 +19,10 @@ const AdminRequests = () => {
   const [adminResponse, setAdminResponse] = useState('');
   const [products, setProducts] = useState([]);
   const [salesDetails, setSalesDetails] = useState([]);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     const unsubscribe = subscribeAdminRequests((data) => {
@@ -84,6 +88,19 @@ const AdminRequests = () => {
     if (filter === 'all') return true;
     return req.status === filter;
   });
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  // Paginated requests
+  const paginatedRequests = filteredRequests.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
 
   const handleUpdateStatus = async (requestId, newStatus) => {
     setLoading(true);
@@ -187,8 +204,9 @@ const AdminRequests = () => {
           </p>
         </div>
       ) : (
-        <div className="requests-list">
-          {filteredRequests.map((request) => (
+        <>
+          <div className="requests-list">
+            {paginatedRequests.map((request) => (
             <div key={request.id} className="request-card">
               <div className="request-header">
                 <div className="request-info">
@@ -251,7 +269,31 @@ const AdminRequests = () => {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+          
+          {/* Pagination */}
+          {filteredRequests.length > itemsPerPage && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+              <span className="pagination-info">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Review Modal */}

@@ -34,12 +34,18 @@ const RequestChanges = () => {
   const [filteredProductsFrom, setFilteredProductsFrom] = useState([]);
   const [filteredProductsTo, setFilteredProductsTo] = useState([]);
   const [extraCashAmount, setExtraCashAmount] = useState('');
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     if (!user) return;
 
     const unsubscribe = subscribeUserRequests(user.uid, (data) => {
-      setRequests(data);
+      // Filter only pending requests
+      const pendingRequests = data.filter(req => req.status === 'pending');
+      setRequests(pendingRequests);
     });
 
     return () => unsubscribe();
@@ -537,16 +543,17 @@ const RequestChanges = () => {
       )}
 
       <div className="requests-section">
-        <h2>My Requests</h2>
+        <h2>My Requests (Pending)</h2>
         
         {requests.length === 0 ? (
           <div className="empty-state">
-            <p>📋 No requests submitted yet</p>
-            <p className="empty-subtitle">Click "New Request" to submit your first request</p>
+            <p>📋 No pending requests</p>
+            <p className="empty-subtitle">All your requests have been reviewed or click "New Request" to submit</p>
           </div>
         ) : (
-          <div className="requests-list">
-            {requests.map((request) => (
+          <>
+            <div className="requests-list">
+              {requests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((request) => (
               <div key={request.id} className="request-card">
                 <div className="request-header">
                   <div className="request-type">
@@ -596,8 +603,32 @@ const RequestChanges = () => {
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+            </div>
+            
+            {/* Pagination */}
+            {requests.length > itemsPerPage && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  ← Previous
+                </button>
+                <span className="pagination-info">
+                  Page {currentPage} of {Math.ceil(requests.length / itemsPerPage)}
+                </span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(requests.length / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil(requests.length / itemsPerPage)}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
         
         <div className="page-actions">
