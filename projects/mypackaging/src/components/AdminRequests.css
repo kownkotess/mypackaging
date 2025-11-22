@@ -649,6 +649,73 @@ body.dark-mode .request-changes strong {
   margin-left: 10px;
 }
 
+/* Sales details in modal */
+.sales-details-list {
+  margin-top: 8px;
+}
+
+.sales-count {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.sale-detail-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #004D24;
+}
+
+body.dark-mode .sale-detail-item {
+  background: #2a2a2a;
+  border-left-color: #4CAF50;
+}
+
+.sale-detail-time {
+  font-weight: 600;
+  color: #004D24;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+body.dark-mode .sale-detail-time {
+  color: #4CAF50;
+}
+
+.sale-detail-price {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #000;
+  margin-bottom: 4px;
+}
+
+body.dark-mode .sale-detail-price {
+  color: #fff;
+}
+
+.sale-detail-customer {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+body.dark-mode .sale-detail-customer {
+  color: #aaa;
+}
+
+.sale-detail-items {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+body.dark-mode .sale-detail-items {
+  color: #999;
+}
+
 /* Page actions */
 .page-actions {
   margin-top: 30px;

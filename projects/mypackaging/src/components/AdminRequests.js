@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContextWrapper';
 import { useAlert } from '../context/AlertContext';
 import { useNavigate } from 'react-router-dom';
-import { subscribeAdminRequests, updateAdminRequest } from '../lib/firestore';
+import { subscribeAdminRequests, updateAdminRequest, subscribeProducts } from '../lib/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { logActivity } from '../lib/auditLog';
 import './AdminRequests.css';
 
@@ -15,6 +17,8 @@ const AdminRequests = () => {
   const [filter, setFilter] = useState('pending'); // pending, completed, all
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [adminResponse, setAdminResponse] = useState('');
+  const [products, setProducts] = useState([]);
+  const [salesDetails, setSalesDetails] = useState([]);
 
   useEffect(() => {
     const unsubscribe = subscribeAdminRequests((data) => {
@@ -23,6 +27,58 @@ const AdminRequests = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Load products for calculating units
+  useEffect(() => {
+    const unsubscribe = subscribeProducts((productsData) => {
+      setProducts(productsData);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch sale details when a request with saleIds is selected
+  useEffect(() => {
+    const fetchSalesDetails = async () => {
+      if (selectedRequest?.changes?.saleIds) {
+        try {
+          const salesPromises = selectedRequest.changes.saleIds.map(saleId => 
+            getDoc(doc(db, 'sales', saleId))
+          );
+          const salesDocs = await Promise.all(salesPromises);
+          const salesData = salesDocs
+            .filter(doc => doc.exists())
+            .map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+          setSalesDetails(salesData);
+        } catch (error) {
+          console.error('Error fetching sales details:', error);
+        }
+      } else {
+        setSalesDetails([]);
+      }
+    };
+
+    fetchSalesDetails();
+  }, [selectedRequest]);
+
+  const calculateTotalUnits = (item) => {
+    if (item.quantity) return item.quantity;
+
+    const product = products.find(p => p.id === item.productId);
+    if (!product) {
+      return (item.qtyBox || 0) + (item.qtyPack || 0) + (item.qtyLoose || 0);
+    }
+
+    const qtyBox = Number(item.qtyBox) || 0;
+    const qtyPack = Number(item.qtyPack) || 0;
+    const qtyLoose = Number(item.qtyLoose) || 0;
+    const bigBulkQty = Number(product.bigBulkQty) || 1;
+    const smallBulkQty = Number(product.smallBulkQty) || 1;
+    
+    return (qtyBox * bigBulkQty) + (qtyPack * smallBulkQty) + qtyLoose;
+  };
 
   const filteredRequests = requests.filter(req => {
     if (filter === 'all') return true;
@@ -222,7 +278,30 @@ const AdminRequests = () => {
                   <div className="detail-row">
                     <strong>Changes:</strong>
                     <div>
-                      {selectedRequest.changes.saleIds && (
+                      {selectedRequest.changes.saleIds && salesDetails.length > 0 && (
+                        <div className="sales-details-list">
+                          <p className="sales-count">{salesDetails.length} sale(s) from {new Date(selectedRequest.changes.date).toLocaleDateString('en-MY')}:</p>
+                          {salesDetails.map(sale => {
+                            const saleTime = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
+                            const itemsText = (sale.items || []).map(item => 
+                              `${item.name || 'Unknown'} ×${calculateTotalUnits(item)}`
+                            ).join(', ');
+                            return (
+                              <div key={sale.id} className="sale-detail-item">
+                                <div className="sale-detail-time">
+                                  {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div className="sale-detail-price">RM {(sale.total || 0).toFixed(2)}</div>
+                                {sale.customerName && (
+                                  <div className="sale-detail-customer">👤 {sale.customerName}</div>
+                                )}
+                                <div className="sale-detail-items">{itemsText || 'No items'}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {selectedRequest.changes.saleIds && salesDetails.length === 0 && (
                         <p>Selected {selectedRequest.changes.saleIds.length} sale(s) from {new Date(selectedRequest.changes.date).toLocaleDateString('en-MY')}</p>
                       )}
                       {selectedRequest.changes.supplier && (
