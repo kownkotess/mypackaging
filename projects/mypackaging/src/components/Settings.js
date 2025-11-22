@@ -597,12 +597,6 @@ const ProfileSettings = ({ user }) => {
             Auto-save forms
           </label>
         </div>
-        <div className="setting-item">
-          <label>
-            <input type="checkbox" />
-            Dark mode (Coming soon)
-          </label>
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useTheme } from '../context/ThemeContext';
 import { CanAccess } from './RoleComponents';
 import NotificationDropdown from './NotificationDropdown';
 import DashboardAlerts from './DashboardAlerts';
@@ -14,6 +15,7 @@ import { Capacitor } from '@capacitor/core';
 
 const Dashboard = () => {
   const { user, userRole, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   // Add pull-to-refresh functionality for mobile (works on iOS PWA and Android)
   useEffect(() => {
@@ -148,6 +150,14 @@ const Dashboard = () => {
           <div className="user-info">
             <span>Welcome, {user?.email}</span>
             <span className={`role-badge ${userRole}`}>{userRole}</span>
+            <button 
+              onClick={toggleTheme}
+              className="theme-toggle-btn"
+              aria-label="Toggle dark mode"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
             <NotificationDropdown />
             <Link to="/change-password" className="change-password-link">
               🔐 Change Password

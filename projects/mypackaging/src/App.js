@@ -8,6 +8,7 @@ import './components/RoleBasedAccess.css';
 import { AuthProvider } from './context/AuthContext';
 import { AuthWrapperProvider } from './context/AuthContextWrapper';
 import { AlertProvider } from './context/AlertContext';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Toast from './components/Toast';
 import Dashboard from './components/Dashboard';
@@ -112,16 +113,17 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <AuthWrapperProvider>
-        <AlertProvider>
-          <Router>
-            <ScrollToTop />
-            <AndroidBackButton />
-            <div className="App">
-              <OfflineIndicator />
-              <Toast />
-              <Routes>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthWrapperProvider>
+          <AlertProvider>
+            <Router>
+              <ScrollToTop />
+              <AndroidBackButton />
+              <div className="App">
+                <OfflineIndicator />
+                <Toast />
+                <Routes>
               {/* Dashboard - accessible to all authenticated users */}
               <Route path="/" element={
                 <ProtectedRoute>
@@ -226,6 +228,7 @@ function App() {
         </AlertProvider>
       </AuthWrapperProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

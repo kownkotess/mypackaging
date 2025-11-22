@@ -160,6 +160,40 @@
   text-align: center;
 }
 
+/* Dark Mode Toggle in Drawer */
+.drawer-theme-toggle {
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: auto;
+}
+
+.drawer-theme-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 0;
+  background: none;
+  color: white;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.drawer-theme-button:hover,
+.drawer-theme-button:active {
+  opacity: 0.8;
+}
+
+.drawer-theme-button .nav-icon {
+  font-size: 20px;
+  margin-right: 16px;
+  width: 24px;
+  text-align: center;
+}
+
 /* Mobile Header (still needed for non-swipe interactions) */
 .mobile-header {
   position: fixed;
@@ -264,6 +298,28 @@
   border: 2px solid #ff6b35;
 }
 
+.mobile-theme-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+}
+
+.mobile-theme-toggle:hover,
+.mobile-theme-toggle:active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 /* Hamburger Menu Button */
 .mobile-menu-toggle {
   background: none;
@@ -325,4 +381,23 @@
   .mobile-header {
     display: none !important;
   }
+}
+
+/* Dark Mode Styles */
+body.dark-mode .swipeable-drawer {
+  background: #1a1a1a;
+}
+
+body.dark-mode .drawer-user-section {
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .mobile-header {
+  background: #1a1a1a;
+}
+
+body.dark-mode .drawer-theme-toggle {
+  border-top-color: rgba(255, 255, 255, 0.05);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
 }

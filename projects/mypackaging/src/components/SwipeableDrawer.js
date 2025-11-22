@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextWrapper';
+import { useTheme } from '../context/ThemeContext';
 import NotificationDropdown from './NotificationDropdown';
 import logo from '../assets/logo.png';
 import { Capacitor } from '@capacitor/core';
@@ -8,6 +9,7 @@ import './SwipeableDrawer.css';
 
 const SwipeableDrawer = () => {
   const { user, userRole, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [dragPosition, setDragPosition] = useState(-280); // Drawer width is 280px
   const [isDragging, setIsDragging] = useState(false);
@@ -156,6 +158,14 @@ const SwipeableDrawer = () => {
           
           <div className="mobile-header-actions">
             <span className={`mobile-role-badge ${userRole}`}>{userRole}</span>
+            <button 
+              onClick={toggleTheme}
+              className="mobile-theme-toggle"
+              aria-label="Toggle dark mode"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
             <NotificationDropdown />
           </div>
         </div>
@@ -251,6 +261,14 @@ const SwipeableDrawer = () => {
               </Link>
             </>
           )}
+          
+          {/* Dark Mode Toggle */}
+          <div className="drawer-theme-toggle">
+            <button className="drawer-theme-button" onClick={toggleTheme}>
+              <span className="nav-icon">{theme === 'light' ? '🌙' : '☀️'}</span>
+              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            </button>
+          </div>
           
           <button className="drawer-logout-button" onClick={handleLogout}>
             <span className="nav-icon">🚪</span>

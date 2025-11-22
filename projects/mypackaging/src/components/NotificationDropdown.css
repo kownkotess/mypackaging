@@ -181,6 +181,119 @@
   background-color: #e8f4e8;
 }
 
+.notification-section {
+  border-bottom: 1px solid #eee;
+}
+
+.notification-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  padding: 12px 20px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #f8f9fa;
+}
+
+.request-notification {
+  border-left: 3px solid #FBB040 !important;
+}
+
+.request-notification.unread {
+  background-color: #fff9f0;
+}
+
+.more-requests {
+  padding: 8px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+  background: #f8f9fa;
+}
+
+/* Dark Mode Support */
+body.dark-mode .notification-dropdown-menu {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .notification-header {
+  background: var(--bg-secondary);
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .notification-header h3 {
+  color: var(--text-primary);
+}
+
+body.dark-mode .unread-count {
+  background-color: #006B32;
+}
+
+body.dark-mode .notification-item {
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .notification-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+body.dark-mode .notification-item.unread {
+  background-color: rgba(0, 107, 50, 0.1);
+}
+
+body.dark-mode .request-notification.unread {
+  background-color: rgba(251, 176, 64, 0.1);
+}
+
+body.dark-mode .notification-title {
+  color: var(--text-primary);
+}
+
+body.dark-mode .notification-message {
+  color: var(--text-secondary);
+}
+
+body.dark-mode .notification-time {
+  color: var(--text-tertiary);
+}
+
+body.dark-mode .notification-dot {
+  background-color: #006B32;
+}
+
+body.dark-mode .notification-footer {
+  background: var(--bg-secondary);
+  border-top-color: var(--border-color);
+}
+
+body.dark-mode .view-all-btn {
+  color: #006B32;
+}
+
+body.dark-mode .view-all-btn:hover {
+  background-color: rgba(0, 107, 50, 0.1);
+}
+
+body.dark-mode .section-title {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+body.dark-mode .more-requests {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+body.dark-mode .no-notifications {
+  color: var(--text-secondary);
+}
+
 /* Responsive design */
 @media (max-width: 480px) {
   .notification-dropdown-menu {
