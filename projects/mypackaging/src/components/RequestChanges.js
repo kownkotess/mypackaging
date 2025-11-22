@@ -346,34 +346,8 @@ const RequestChanges = () => {
                   max={new Date().toISOString().split('T')[0]}
                 />
                 {sales.length > 0 && showSalesList && (
-                  <div className="sales-list">
-                    <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
-                    {sales.map(sale => {
-                      const saleTime = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
-                      const itemsText = (sale.items || []).map(item => 
-                        `${item.name || 'Unknown'} ×${calculateTotalUnits(item)}`
-                      ).join(', ');
-                      return (
-                        <label key={sale.id} className="sale-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={selectedSales.includes(sale.id)}
-                            onChange={() => handleSaleSelection(sale.id)}
-                          />
-                          <span className="sale-info">
-                            <span className="sale-time">
-                              {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <span className="sale-price">RM {(sale.total || 0).toFixed(2)}</span>
-                            {sale.customerName && (
-                              <span className="sale-customer">👤 {sale.customerName}</span>
-                            )}
-                            <span className="sale-items">{itemsText || 'No items'}</span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                    <div className="sales-list-footer">
+                  <>
+                    <div className="sales-list-header">
                       <span className="selected-count">
                         {selectedSales.length} sale{selectedSales.length !== 1 ? 's' : ''} selected
                       </span>
@@ -385,7 +359,35 @@ const RequestChanges = () => {
                         Done
                       </button>
                     </div>
-                  </div>
+                    <div className="sales-list">
+                      <p className="sales-hint">Select sales from {new Date(selectedDate).toLocaleDateString('en-MY')}:</p>
+                      {sales.map(sale => {
+                        const saleTime = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(sale.createdAt);
+                        const itemsText = (sale.items || []).map(item => 
+                          `${item.name || 'Unknown'} ×${calculateTotalUnits(item)}`
+                        ).join(', ');
+                        return (
+                          <label key={sale.id} className="sale-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={selectedSales.includes(sale.id)}
+                              onChange={() => handleSaleSelection(sale.id)}
+                            />
+                            <span className="sale-info">
+                              <span className="sale-time">
+                                {saleTime.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className="sale-price">RM {(sale.total || 0).toFixed(2)}</span>
+                              {sale.customerName && (
+                                <span className="sale-customer">👤 {sale.customerName}</span>
+                              )}
+                              <span className="sale-items">{itemsText || 'No items'}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
                 {sales.length > 0 && !showSalesList && selectedSales.length > 0 && (
                   <div className="sales-summary">

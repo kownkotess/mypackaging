@@ -122,6 +122,24 @@ body.dark-mode .sales-list {
   background: #2a2a2a;
 }
 
+/* Sales list header (above the list) */
+.sales-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  background: #e8f5e9;
+  border-radius: 4px;
+  border: 2px solid #004D24;
+}
+
+body.dark-mode .sales-list-header {
+  background: #1a2e1a;
+  border-color: #4CAF50;
+}
+
 .sales-hint {
   font-size: 0.875rem;
   font-weight: 500;
@@ -213,21 +231,7 @@ body.dark-mode .sale-items {
   color: #999;
 }
 
-/* Sales list footer */
-.sales-list-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  margin-top: 8px;
-  border-top: 2px solid #e0e0e0;
-  background: #f8f9fa;
-}
-
-body.dark-mode .sales-list-footer {
-  border-top-color: #444;
-  background: #1a1a1a;
-}
+/* Sales list footer - REMOVED, now using header above list */
 
 .selected-count {
   font-weight: 600;
