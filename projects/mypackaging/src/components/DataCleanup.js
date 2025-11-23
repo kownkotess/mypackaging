@@ -32,7 +32,8 @@ const DataCleanup = () => {
         returnsSnapshot,
         shopUsesSnapshot,
         transfersSnapshot,
-        extraCashSnapshot
+        extraCashSnapshot,
+        stockAuditsSnapshot
       ] = await Promise.all([
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'sales')),
@@ -40,7 +41,8 @@ const DataCleanup = () => {
         getDocs(collection(db, 'returns')),
         getDocs(collection(db, 'shopUses')),
         getDocs(collection(db, 'transfers')),
-        getDocs(collection(db, 'extraCash'))
+        getDocs(collection(db, 'extraCash')),
+        getDocs(collection(db, 'stockAudits'))
       ]);
       
       console.log(`Found ${paymentsSnapshot.size} payments`);
@@ -50,6 +52,7 @@ const DataCleanup = () => {
       console.log(`Found ${shopUsesSnapshot.size} shop uses`);
       console.log(`Found ${transfersSnapshot.size} transfers`);
       console.log(`Found ${extraCashSnapshot.size} extra cash records`);
+      console.log(`Found ${stockAuditsSnapshot.size} stock audits`);
       
       let paymentsToDelete = [];
       let salesToDelete = [];
@@ -58,6 +61,7 @@ const DataCleanup = () => {
       let shopUsesToDelete = [];
       let transfersToDelete = [];
       let extraCashToDelete = [];
+      let stockAuditsToDelete = [];
       
       let paymentsToKeep = [];
       let salesToKeep = [];
@@ -66,6 +70,7 @@ const DataCleanup = () => {
       let shopUsesToKeep = [];
       let transfersToKeep = [];
       let extraCashToKeep = [];
+      let stockAuditsToKeep = [];
       
       // Analyze payments
       paymentsSnapshot.forEach(docSnapshot => {
@@ -184,6 +189,22 @@ const DataCleanup = () => {
         }
       });
       
+      // Analyze stock audits
+      stockAuditsSnapshot.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt?.toDate();
+        
+        if (createdAt && createdAt < cutoffDate) {
+          stockAuditsToDelete.push({
+            id: docSnapshot.id,
+            notes: data.notes,
+            createdAt: createdAt
+          });
+        } else {
+          stockAuditsToKeep.push({ id: docSnapshot.id });
+        }
+      });
+      
       setAnalysis({
         paymentsToDelete,
         salesToDelete,
@@ -192,6 +213,7 @@ const DataCleanup = () => {
         shopUsesToDelete,
         transfersToDelete,
         extraCashToDelete,
+        stockAuditsToDelete,
         paymentsToKeep,
         salesToKeep,
         purchasesToKeep,
@@ -199,13 +221,14 @@ const DataCleanup = () => {
         shopUsesToKeep,
         transfersToKeep,
         extraCashToKeep,
+        stockAuditsToKeep,
         cutoffDate
       });
       
       const totalToDelete = paymentsToDelete.length + salesToDelete.length + 
                            purchasesToDelete.length + returnsToDelete.length +
                            shopUsesToDelete.length + transfersToDelete.length +
-                           extraCashToDelete.length;
+                           extraCashToDelete.length + stockAuditsToDelete.length;
       
       console.log('Analysis Results:');
       console.log(`Total records to delete: ${totalToDelete}`);
@@ -216,6 +239,7 @@ const DataCleanup = () => {
       console.log(`  - Shop Uses: ${shopUsesToDelete.length}`);
       console.log(`  - Transfers: ${transfersToDelete.length}`);
       console.log(`  - Extra Cash: ${extraCashToDelete.length}`);
+      console.log(`  - Stock Audits: ${stockAuditsToDelete.length}`);
       
     } catch (error) {
       console.error('Error analyzing data:', error);
@@ -230,7 +254,7 @@ const DataCleanup = () => {
     const totalToDelete = analysis.paymentsToDelete.length + analysis.salesToDelete.length + 
                          analysis.purchasesToDelete.length + analysis.returnsToDelete.length +
                          analysis.shopUsesToDelete.length + analysis.transfersToDelete.length +
-                         analysis.extraCashToDelete.length;
+                         analysis.extraCashToDelete.length + analysis.stockAuditsToDelete.length;
     
     const confirmed = await showConfirm(
       'Delete Old Data (24+ months)',
@@ -241,7 +265,8 @@ const DataCleanup = () => {
       `• ${analysis.returnsToDelete.length} returns\n` +
       `• ${analysis.shopUsesToDelete.length} shop uses\n` +
       `• ${analysis.transfersToDelete.length} transfers\n` +
-      `• ${analysis.extraCashToDelete.length} extra cash\n\n` +
+      `• ${analysis.extraCashToDelete.length} extra cash\n` +
+      `• ${analysis.stockAuditsToDelete.length} stock audits\n\n` +
       `This cannot be undone. Continue?`
     );
     
@@ -293,6 +318,12 @@ const DataCleanup = () => {
         deletedCount++;
       }
       
+      // Delete old stock audits
+      for (const stockAudit of analysis.stockAuditsToDelete) {
+        await deleteDoc(doc(db, 'stockAudits', stockAudit.id));
+        deletedCount++;
+      }
+      
       showSuccess(
         `Cleanup completed! Deleted ${deletedCount} records older than 24 months.\n` +
         `Products were NOT affected.`
@@ -329,6 +360,7 @@ const DataCleanup = () => {
           <li>Shop Uses (older than 24 months)</li>
           <li>Transfers (older than 24 months)</li>
           <li>Extra Cash (older than 24 months)</li>
+          <li>Stock Audits (older than 24 months)</li>
         </ul>
         <p style={{ marginTop: '10px', marginBottom: '0', fontWeight: 'bold', color: '#28a745' }}>
           ✓ Products will NOT be affected
@@ -369,12 +401,13 @@ const DataCleanup = () => {
               <p><strong>Shop Uses:</strong> {analysis.shopUsesToDelete.length}</p>
               <p><strong>Transfers:</strong> {analysis.transfersToDelete.length}</p>
               <p><strong>Extra Cash:</strong> {analysis.extraCashToDelete.length}</p>
+              <p><strong>Stock Audits:</strong> {analysis.stockAuditsToDelete.length}</p>
               <hr />
               <p style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
                 Total: {analysis.paymentsToDelete.length + analysis.salesToDelete.length + 
                        analysis.purchasesToDelete.length + analysis.returnsToDelete.length +
                        analysis.shopUsesToDelete.length + analysis.transfersToDelete.length +
-                       analysis.extraCashToDelete.length}
+                       analysis.extraCashToDelete.length + analysis.stockAuditsToDelete.length}
               </p>
             </div>
 
@@ -387,12 +420,13 @@ const DataCleanup = () => {
               <p><strong>Shop Uses:</strong> {analysis.shopUsesToKeep.length}</p>
               <p><strong>Transfers:</strong> {analysis.transfersToKeep.length}</p>
               <p><strong>Extra Cash:</strong> {analysis.extraCashToKeep.length}</p>
+              <p><strong>Stock Audits:</strong> {analysis.stockAuditsToKeep.length}</p>
               <hr />
               <p style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
                 Total: {analysis.paymentsToKeep.length + analysis.salesToKeep.length + 
                        analysis.purchasesToKeep.length + analysis.returnsToKeep.length +
                        analysis.shopUsesToKeep.length + analysis.transfersToKeep.length +
-                       analysis.extraCashToKeep.length}
+                       analysis.extraCashToKeep.length + analysis.stockAuditsToKeep.length}
               </p>
             </div>
           </div>

@@ -173,6 +173,19 @@
   box-sizing: border-box !important;
 }
 
+/* Search prompt message */
+.search-prompt {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.search-prompt p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 .product-item {
   display: flex;
   justify-content: space-between;

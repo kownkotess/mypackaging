@@ -26,7 +26,11 @@ const StockMonitoring = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [editingReorderPoint, setEditingReorderPoint] = useState(null);
   const [newReorderPoint, setNewReorderPoint] = useState('');
+  const [stockOverviewPage, setStockOverviewPage] = useState(1);
+  const [reorderSuggestionsPage, setReorderSuggestionsPage] = useState(1);
 
+  const itemsPerPage = 10;
+  const suggestionsPerPage = 12;
   const healthMetrics = getStockHealthMetrics;
 
   const handleSettingsUpdate = (key, value) => {
@@ -76,6 +80,29 @@ const StockMonitoring = () => {
       'medium': 'urgency-medium'
     };
     return classes[urgency] || 'urgency-medium';
+  };
+
+  // Pagination calculations for Stock Status Overview
+  const totalStockOverviewPages = Math.ceil(products.length / itemsPerPage);
+  const stockOverviewStartIndex = (stockOverviewPage - 1) * itemsPerPage;
+  const stockOverviewEndIndex = stockOverviewStartIndex + itemsPerPage;
+  const paginatedProducts = products.slice(stockOverviewStartIndex, stockOverviewEndIndex);
+
+  const handleStockOverviewPageChange = (newPage) => {
+    setStockOverviewPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Pagination calculations for Reorder Suggestions
+  const reorderSuggestions = healthMetrics?.reorderSuggestions || [];
+  const totalSuggestionsPages = Math.ceil(reorderSuggestions.length / suggestionsPerPage);
+  const suggestionsStartIndex = (reorderSuggestionsPage - 1) * suggestionsPerPage;
+  const suggestionsEndIndex = suggestionsStartIndex + suggestionsPerPage;
+  const paginatedSuggestions = reorderSuggestions.slice(suggestionsStartIndex, suggestionsEndIndex);
+
+  const handleReorderSuggestionsPageChange = (newPage) => {
+    setReorderSuggestionsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (loading) {
@@ -281,7 +308,7 @@ const StockMonitoring = () => {
               </tr>
             </thead>
             <tbody>
-              {products.map(product => {
+              {paginatedProducts.map(product => {
                 const status = getStockStatus(product);
                 return (
                   <tr key={product.id} className={getStatusBadgeClass(status)}>
@@ -355,6 +382,43 @@ const StockMonitoring = () => {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {totalStockOverviewPages > 1 && (
+          <div className="pagination-info">
+            <p>Showing {stockOverviewStartIndex + 1}-{Math.min(stockOverviewEndIndex, products.length)} of {products.length} products</p>
+          </div>
+        )}
+        
+        {totalStockOverviewPages > 1 && (
+          <div className="pagination-controls">
+            <button 
+              onClick={() => handleStockOverviewPageChange(stockOverviewPage - 1)}
+              disabled={stockOverviewPage === 1}
+              className="btn secondary"
+            >
+              ← Previous
+            </button>
+            <div className="page-numbers">
+              {[...Array(totalStockOverviewPages)].map((_, index) => (
+                <button
+                  key={index + 1}
+                  onClick={() => handleStockOverviewPageChange(index + 1)}
+                  className={`page-number ${stockOverviewPage === index + 1 ? 'active' : ''}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => handleStockOverviewPageChange(stockOverviewPage + 1)}
+              disabled={stockOverviewPage === totalStockOverviewPages}
+              className="btn secondary"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Reorder Suggestions */}
@@ -366,7 +430,7 @@ const StockMonitoring = () => {
           </div>
           
           <div className="suggestions-list">
-            {healthMetrics.reorderSuggestions.slice(0, 10).map(suggestion => (
+            {paginatedSuggestions.map(suggestion => (
               <div key={suggestion.productId} className={`suggestion-card priority-${suggestion.priority}`}>
                 <div className="suggestion-header">
                   <h4>{suggestion.productName}</h4>
@@ -398,6 +462,43 @@ const StockMonitoring = () => {
               </div>
             ))}
           </div>
+          
+          {/* Pagination Controls */}
+          {totalSuggestionsPages > 1 && (
+            <div className="pagination-info">
+              <p>Showing {suggestionsStartIndex + 1}-{Math.min(suggestionsEndIndex, reorderSuggestions.length)} of {reorderSuggestions.length} suggestions</p>
+            </div>
+          )}
+          
+          {totalSuggestionsPages > 1 && (
+            <div className="pagination-controls">
+              <button 
+                onClick={() => handleReorderSuggestionsPageChange(reorderSuggestionsPage - 1)}
+                disabled={reorderSuggestionsPage === 1}
+                className="btn secondary"
+              >
+                ← Previous
+              </button>
+              <div className="page-numbers">
+                {[...Array(totalSuggestionsPages)].map((_, index) => (
+                  <button
+                    key={index + 1}
+                    onClick={() => handleReorderSuggestionsPageChange(index + 1)}
+                    className={`page-number ${reorderSuggestionsPage === index + 1 ? 'active' : ''}`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => handleReorderSuggestionsPageChange(reorderSuggestionsPage + 1)}
+                disabled={reorderSuggestionsPage === totalSuggestionsPages}
+                className="btn secondary"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
 

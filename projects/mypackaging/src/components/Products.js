@@ -189,6 +189,84 @@ const Products = () => {
     setShowPrintModal(true);
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) {
+      showWarning('Please select at least one product to delete.');
+      return;
+    }
+
+    // Check if online
+    if (!navigator.onLine) {
+      showError('⚠️ No internet connection. Please connect to the internet to delete products.');
+      return;
+    }
+
+    const selectedCount = selectedProducts.size;
+    const selectedProductNames = products
+      .filter(p => selectedProducts.has(p.id))
+      .map(p => p.name)
+      .join(', ');
+
+    showConfirm(
+      `Are you sure you want to delete ${selectedCount} selected product(s)? This action cannot be undone.\n\nProducts: ${selectedProductNames}`,
+      async () => {
+        try {
+          setLoading(true);
+          let successCount = 0;
+          let failCount = 0;
+          
+          // Delete all selected products
+          for (const productId of selectedProducts) {
+            try {
+              const product = products.find(p => p.id === productId);
+              const deletePromise = deleteProduct(productId);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Connection timeout')), 15000)
+              );
+              await Promise.race([deletePromise, timeoutPromise]);
+              
+              // Log the deletion
+              await logActivity(
+                'product_deleted',
+                user?.email || 'unknown_user',
+                `Product "${product?.name}" was deleted (bulk delete)`,
+                'action',
+                {
+                  productId,
+                  productName: product?.name,
+                  deletedBy: user?.email,
+                  bulkDelete: true
+                }
+              );
+              
+              successCount++;
+            } catch (error) {
+              console.error(`Error deleting product ${productId}:`, error);
+              failCount++;
+            }
+          }
+          
+          // Clear selection
+          setSelectedProducts(new Set());
+          
+          // Show result
+          if (failCount === 0) {
+            showSuccess(`Successfully deleted ${successCount} product(s)`);
+          } else {
+            showWarning(`Deleted ${successCount} product(s), ${failCount} failed`);
+          }
+          
+          setError('');
+        } catch (error) {
+          console.error('Error in bulk delete:', error);
+          showError('Failed to delete products. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -265,6 +343,15 @@ const Products = () => {
               disabled={selectedProducts.size === 0}
             >
               🖨️ Print Selected ({selectedProducts.size})
+            </button>
+          </RequirePermission>
+          <RequirePermission module="products" action="delete">
+            <button 
+              onClick={handleBulkDelete} 
+              className="btn danger"
+              disabled={selectedProducts.size === 0 || loading}
+            >
+              {loading ? '⏳ Deleting...' : `🗑️ Delete Selected (${selectedProducts.size})`}
             </button>
           </RequirePermission>
         </div>

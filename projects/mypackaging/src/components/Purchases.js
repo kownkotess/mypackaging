@@ -46,6 +46,9 @@ function Purchases() {
   // Invoice filter for purchase history
   const [invoiceFilter, setInvoiceFilter] = useState('');
   
+  // Status filter for purchase history
+  const [statusFilter, setStatusFilter] = useState('all');
+  
   // Supplier auto-suggestion
   const [supplierSuggestions, setSupplierSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -172,6 +175,14 @@ function Purchases() {
       );
     }
     
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(purchase => {
+        const purchaseStatus = purchase.status || '';
+        return purchaseStatus === statusFilter;
+      });
+    }
+    
     return filtered;
   };
 
@@ -186,7 +197,7 @@ function Purchases() {
   // Reset to first page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter]);
+  }, [dateFilter, statusFilter, invoiceFilter]);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -1196,6 +1207,22 @@ function Purchases() {
                 <option value="3months">Last 3 Months</option>
                 <option value="6months">Last 6 Months</option>
                 <option value="12months">Last 12 Months</option>
+              </select>
+            </div>
+            <div className="status-filter">
+              <label htmlFor="statusFilter">Filter by Status:</label>
+              <select 
+                id="statusFilter"
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Status</option>
+                <option value="📦 Ordered">📦 Ordered</option>
+                <option value="🚚 In Transit">🚚 In Transit</option>
+                <option value="✅ Received">✅ Received</option>
+                <option value="📋 Received Partially">📋 Received Partially</option>
+                <option value="❌ Cancelled">❌ Cancelled</option>
               </select>
             </div>
             <div className="invoice-filter">

@@ -86,6 +86,13 @@ function Shop() {
   const [showExtraCashDeleteConfirm, setShowExtraCashDeleteConfirm] = useState(false);
   const [deletingExtraCash, setDeletingExtraCash] = useState(false);
 
+  // Pagination state for all tabs
+  const [shopUsePage, setShopUsePage] = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
+  const [extraCashPage, setExtraCashPage] = useState(1);
+  const [stockAuditPage, setStockAuditPage] = useState(1);
+  const itemsPerPage = 12;
+
   // Subscribe to products
   useEffect(() => {
     const unsubscribe = subscribeProducts((productsData) => {
@@ -684,6 +691,51 @@ function Shop() {
   // Get current product stock for audit
   const auditProductData = auditProduct ? products.find(p => p.id === auditProduct) : null;
 
+  // Pagination calculations for Shop Use
+  const shopUseTotalPages = Math.ceil(shopUses.length / itemsPerPage);
+  const shopUseStartIndex = (shopUsePage - 1) * itemsPerPage;
+  const shopUseEndIndex = shopUseStartIndex + itemsPerPage;
+  const paginatedShopUses = shopUses.slice(shopUseStartIndex, shopUseEndIndex);
+
+  // Pagination calculations for Transfers
+  const transferTotalPages = Math.ceil(transfers.length / itemsPerPage);
+  const transferStartIndex = (transferPage - 1) * itemsPerPage;
+  const transferEndIndex = transferStartIndex + itemsPerPage;
+  const paginatedTransfers = transfers.slice(transferStartIndex, transferEndIndex);
+
+  // Pagination calculations for Extra Cash
+  const extraCashTotalPages = Math.ceil(extraCashEntries.length / itemsPerPage);
+  const extraCashStartIndex = (extraCashPage - 1) * itemsPerPage;
+  const extraCashEndIndex = extraCashStartIndex + itemsPerPage;
+  const paginatedExtraCash = extraCashEntries.slice(extraCashStartIndex, extraCashEndIndex);
+
+  // Pagination calculations for Stock Audits
+  const stockAuditTotalPages = Math.ceil(stockAudits.length / itemsPerPage);
+  const stockAuditStartIndex = (stockAuditPage - 1) * itemsPerPage;
+  const stockAuditEndIndex = stockAuditStartIndex + itemsPerPage;
+  const paginatedStockAudits = stockAudits.slice(stockAuditStartIndex, stockAuditEndIndex);
+
+  // Page change handlers
+  const handleShopUsePageChange = (page) => {
+    setShopUsePage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleTransferPageChange = (page) => {
+    setTransferPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleExtraCashPageChange = (page) => {
+    setExtraCashPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStockAuditPageChange = (page) => {
+    setStockAuditPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (!user) {
     return <div className="shop-container"><p>Please log in to access this page.</p></div>;
   }
@@ -869,8 +921,9 @@ function Shop() {
             {shopUses.length === 0 ? (
               <p className="empty-message">No shop use records yet.</p>
             ) : (
+              <>
               <div className="items-grid">
-                {shopUses.map(shopUse => (
+                {paginatedShopUses.map(shopUse => (
                   <div key={shopUse.id} className="item-card">
                     <div className="item-header">
                       <strong>{shopUse.reason}</strong>
@@ -905,6 +958,60 @@ function Shop() {
                   </div>
                 ))}
               </div>
+              
+              {/* Pagination Controls */}
+              {shopUseTotalPages > 1 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Showing {shopUseStartIndex + 1}-{Math.min(shopUseEndIndex, shopUses.length)} of {shopUses.length} records
+                  </div>
+                  <div className="pagination-controls">
+                    <button 
+                      onClick={() => handleShopUsePageChange(shopUsePage - 1)}
+                      disabled={shopUsePage === 1}
+                      className="pagination-btn"
+                    >
+                      ‹ Previous
+                    </button>
+                    
+                    {[...Array(shopUseTotalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === shopUsePage;
+                      
+                      if (
+                        pageNumber === 1 || 
+                        pageNumber === shopUseTotalPages ||
+                        (pageNumber >= shopUsePage - 1 && pageNumber <= shopUsePage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handleShopUsePageChange(pageNumber)}
+                            className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (
+                        pageNumber === shopUsePage - 2 || 
+                        pageNumber === shopUsePage + 2
+                      ) {
+                        return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                      }
+                      return null;
+                    })}
+                    
+                    <button 
+                      onClick={() => handleShopUsePageChange(shopUsePage + 1)}
+                      disabled={shopUsePage === shopUseTotalPages}
+                      className="pagination-btn"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </>
@@ -1081,8 +1188,9 @@ function Shop() {
             {transfers.length === 0 ? (
               <p className="empty-message">No transfers yet.</p>
             ) : (
+              <>
               <div className="items-grid">
-                {transfers.map(transfer => (
+                {paginatedTransfers.map(transfer => (
                   <div key={transfer.id} className="item-card">
                     <div className="item-header">
                       <strong>Transfer</strong>
@@ -1118,6 +1226,59 @@ function Shop() {
                   </div>
                 ))}
               </div>
+              
+              {/* Pagination Controls */}
+              {transferTotalPages > 1 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Showing {transferStartIndex + 1}-{Math.min(transferEndIndex, transfers.length)} of {transfers.length} records
+                  </div>
+                  <div className="pagination-controls">
+                    <button 
+                      onClick={() => handleTransferPageChange(transferPage - 1)}
+                      disabled={transferPage === 1}
+                      className="pagination-btn"
+                    >
+                      ‹ Previous
+                    </button>
+                    
+                    {[...Array(transferTotalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === transferPage;
+                      
+                      if (
+                        pageNumber === 1 || 
+                        pageNumber === transferTotalPages ||
+                        (pageNumber >= transferPage - 1 && pageNumber <= transferPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handleTransferPageChange(pageNumber)}
+                            className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (
+                        pageNumber === transferPage - 2 || 
+                        pageNumber === transferPage + 2
+                      ) {
+                        return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                      }
+                      return null;
+                    })}\n                    
+                    <button 
+                      onClick={() => handleTransferPageChange(transferPage + 1)}
+                      disabled={transferPage === transferTotalPages}
+                      className="pagination-btn"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </>
@@ -1194,8 +1355,9 @@ function Shop() {
             {extraCashEntries.length === 0 ? (
               <p className="empty-message">No extra cash entries found.</p>
             ) : (
+              <>
               <div className="items-grid">
-                {extraCashEntries.map((entry) => (
+                {paginatedExtraCash.map((entry) => (
                   <div key={entry.id} className="item-card">
                     <div className="item-header">
                       <strong>RM {entry.amount.toFixed(2)}</strong>
@@ -1223,6 +1385,60 @@ function Shop() {
                   </div>
                 ))}
               </div>
+              
+              {/* Pagination Controls */}
+              {extraCashTotalPages > 1 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Showing {extraCashStartIndex + 1}-{Math.min(extraCashEndIndex, extraCashEntries.length)} of {extraCashEntries.length} records
+                  </div>
+                  <div className="pagination-controls">
+                    <button 
+                      onClick={() => handleExtraCashPageChange(extraCashPage - 1)}
+                      disabled={extraCashPage === 1}
+                      className="pagination-btn"
+                    >
+                      ‹ Previous
+                    </button>
+                    
+                    {[...Array(extraCashTotalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === extraCashPage;
+                      
+                      if (
+                        pageNumber === 1 || 
+                        pageNumber === extraCashTotalPages ||
+                        (pageNumber >= extraCashPage - 1 && pageNumber <= extraCashPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handleExtraCashPageChange(pageNumber)}
+                            className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (
+                        pageNumber === extraCashPage - 2 || 
+                        pageNumber === extraCashPage + 2
+                      ) {
+                        return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                      }
+                      return null;
+                    })}
+                    
+                    <button 
+                      onClick={() => handleExtraCashPageChange(extraCashPage + 1)}
+                      disabled={extraCashPage === extraCashTotalPages}
+                      className="pagination-btn"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </>
@@ -1384,8 +1600,9 @@ function Shop() {
             {stockAudits.length === 0 ? (
               <p className="empty-message">No audits yet.</p>
             ) : (
+              <>
               <div className="items-grid">
-                {stockAudits.map(audit => (
+                {paginatedStockAudits.map(audit => (
                   <div key={audit.id} className="item-card">
                     <div className="item-header">
                       <strong>{audit.productName}</strong>
@@ -1416,6 +1633,60 @@ function Shop() {
                   </div>
                 ))}
               </div>
+              
+              {/* Pagination Controls */}
+              {stockAuditTotalPages > 1 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Showing {stockAuditStartIndex + 1}-{Math.min(stockAuditEndIndex, stockAudits.length)} of {stockAudits.length} records
+                  </div>
+                  <div className="pagination-controls">
+                    <button 
+                      onClick={() => handleStockAuditPageChange(stockAuditPage - 1)}
+                      disabled={stockAuditPage === 1}
+                      className="pagination-btn"
+                    >
+                      ‹ Previous
+                    </button>
+                    
+                    {[...Array(stockAuditTotalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === stockAuditPage;
+                      
+                      if (
+                        pageNumber === 1 || 
+                        pageNumber === stockAuditTotalPages ||
+                        (pageNumber >= stockAuditPage - 1 && pageNumber <= stockAuditPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handleStockAuditPageChange(pageNumber)}
+                            className={`pagination-btn ${isCurrentPage ? 'active' : ''}`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (
+                        pageNumber === stockAuditPage - 2 || 
+                        pageNumber === stockAuditPage + 2
+                      ) {
+                        return <span key={pageNumber} className="pagination-ellipsis">...</span>;
+                      }
+                      return null;
+                    })}
+                    
+                    <button 
+                      onClick={() => handleStockAuditPageChange(stockAuditPage + 1)}
+                      disabled={stockAuditPage === stockAuditTotalPages}
+                      className="pagination-btn"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </>

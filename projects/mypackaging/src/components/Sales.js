@@ -43,12 +43,18 @@ const Sales = () => {
   const [paymentAmounts, setPaymentAmounts] = useState({ cash: '', online: '', hutang: '' });
 
   useEffect(() => {
-    loadProducts();
     loadCustomerNames();
   }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = async (searchQuery = '') => {
+    // Only load products if there's a search query
+    if (!searchQuery || searchQuery.trim().length === 0) {
+      setProducts([]);
+      return;
+    }
+
     try {
+      setLoading(true);
       const productsData = await getProducts();
       // Sort products alphabetically by name
       const sortedProducts = productsData.sort((a, b) => 
@@ -58,7 +64,7 @@ const Sales = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error loading products:', error);
-      setError('Failed to load products. Please refresh the page.');
+      setError('Failed to load products. Please try again.');
       setLoading(false);
     }
   };
@@ -128,8 +134,25 @@ const Sales = () => {
   };
 
   // Barcode scanning functions
-  const handleBarcodeScanned = (barcode) => {
+  const handleBarcodeScanned = async (barcode) => {
     setScanningMessage(`Scanned: ${barcode}`);
+    
+    // Need to fetch all products for barcode scanning
+    let allProducts = products;
+    if (allProducts.length === 0) {
+      try {
+        setLoading(true);
+        allProducts = await getProducts();
+        setProducts(allProducts);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading products for scanning:', error);
+        setScanningMessage(`❌ Error loading products`);
+        setTimeout(() => setScanningMessage(''), 5000);
+        setLoading(false);
+        return;
+      }
+    }
     
     let foundProduct = null;
     
@@ -137,7 +160,7 @@ const Sales = () => {
     if (isProductQRCode(barcode)) {
       try {
         const productId = parseProductQRCode(barcode);
-        foundProduct = products.find(product => product.id === productId);
+        foundProduct = allProducts.find(product => product.id === productId);
         
         if (foundProduct) {
           console.log('Found product via QR code:', foundProduct.name);
@@ -150,7 +173,7 @@ const Sales = () => {
       }
     } else {
       // Look for product by traditional barcode, SKU, or ID
-      foundProduct = products.find(product => 
+      foundProduct = allProducts.find(product => 
         product.barcode === barcode || 
         product.sku === barcode ||
         product.id === barcode
@@ -548,14 +571,6 @@ const Sales = () => {
     !selectedProducts.find(item => item.productId === product.id)
   );
 
-  if (loading) {
-    return (
-      <div className="sales-page">
-        <div className="loading">Loading products...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="sales-page">
       <div className="page-navigation">
@@ -576,9 +591,18 @@ const Sales = () => {
             <div className="search-controls">
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder="Type to search products..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  // Only load products when user types at least 2 characters
+                  if (value.length >= 2) {
+                    loadProducts(value);
+                  } else {
+                    setProducts([]);
+                  }
+                }}
                 className="search-input"
               />
               <button
@@ -599,7 +623,24 @@ const Sales = () => {
           </div>
           
           <div className="products-list">
-            {filteredProducts.map(product => (
+            {searchTerm.length === 0 ? (
+              <div className="search-prompt">
+                <p>💡 Type at least 2 characters to search for products</p>
+              </div>
+            ) : searchTerm.length < 2 ? (
+              <div className="search-prompt">
+                <p>Keep typing... (minimum 2 characters)</p>
+              </div>
+            ) : loading ? (
+              <div className="search-prompt">
+                <p>Loading products...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="search-prompt">
+                <p>No products found for "{searchTerm}"</p>
+              </div>
+            ) : (
+              filteredProducts.map(product => (
               <div key={product.id} className="product-item">
                 <div className="product-info">
                   <h4>{product.name}</h4>
@@ -618,7 +659,8 @@ const Sales = () => {
                   {product.stockBalance === 0 ? 'Out of Stock' : 'Add'}
                 </button>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 
