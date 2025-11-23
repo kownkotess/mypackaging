@@ -109,7 +109,7 @@
 }
 
 /* Sales list for date picker */
-.sales-list {
+.request-changes-page .sales-list {
   margin-top: 10px;
   padding: 10px;
   background: #f8f9fa;
@@ -118,7 +118,7 @@
   overflow-y: auto;
 }
 
-body.dark-mode .sales-list {
+body.dark-mode .request-changes-page .sales-list {
   background: #2a2a2a;
 }
 
@@ -260,7 +260,7 @@ body.dark-mode .selected-count {
 }
 
 /* Sales summary (when list is closed) */
-.sales-summary {
+.request-changes-page .sales-summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -271,17 +271,17 @@ body.dark-mode .selected-count {
   border-left: 3px solid #004D24;
 }
 
-body.dark-mode .sales-summary {
+body.dark-mode .request-changes-page .sales-summary {
   background: #1a2e1a;
   border-left-color: #4CAF50;
 }
 
-.sales-summary span {
+.request-changes-page .sales-summary span {
   font-weight: 600;
   color: #004D24;
 }
 
-body.dark-mode .sales-summary span {
+body.dark-mode .request-changes-page .sales-summary span {
   color: #4CAF50;
 }
 
